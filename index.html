@@ -29,65 +29,74 @@ canvas { display:block; margin:auto; background:#333; }
 <script type="module">
 import * as pdfjsLib from './pdfjs/pdf.mjs';
 
-// GitHub info
 const username = "rachelpearlstuart-eng";
 const repo = "poetry";
 const branch = "main";
 const baseRaw = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/`;
 
-// PDF + thumbnail list
 const pdfFiles = [
   { pdf: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.pdf", thumb: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.png" },
   { pdf: "02 - PRETEND (2025, JUNE)-compressed.pdf", thumb: "02 - PRETEND (2025, JUNE)-compressed.png" },
   { pdf: "03 - CONE CAN (2025, AUGUST)-compressed.pdf", thumb: "03 - CONE CAN (2025, AUGUST)-compressed.png" }
 ];
 
-// Helper to encode GitHub raw URLs properly
-function githubRawUrl(filename) {
-    return baseRaw + filename.split("/").map(encodeURIComponent).join("/");
-}
-
-// Build grid
 const grid = document.getElementById("pdfGrid");
-pdfFiles.forEach(file => {
-    const item = document.createElement("div");
-    item.className = "grid-item";
-    item.innerHTML = `
-        <img src="${githubRawUrl(file.thumb)}" alt="${file.pdf}">
-        <div class="title">${file.pdf}</div>
-    `;
-    item.onclick = () => openOverlay(githubRawUrl(file.pdf));
-    grid.appendChild(item);
-});
-
-// PDF.js setup
-let pdfDoc = null;
 const canvas = document.getElementById('pdfCanvas');
 const ctx = canvas.getContext('2d');
+let pdfDoc = null;
 
+// Helper: fetch file as Blob and return object URL
+async function fetchBlobUrl(path) {
+    const response = await fetch(baseRaw + path);
+    if (!response.ok) throw new Error("Failed to fetch " + path);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+}
+
+// Build grid with thumbnails
+pdfFiles.forEach(async file => {
+    const item = document.createElement("div");
+    item.className = "grid-item";
+    try {
+        const thumbUrl = await fetchBlobUrl(encodeURIComponent(file.thumb));
+        item.innerHTML = `
+            <img src="${thumbUrl}" alt="${file.pdf}">
+            <div class="title">${file.pdf}</div>
+        `;
+        item.onclick = async () => {
+            const pdfUrl = await fetchBlobUrl(encodeURIComponent(file.pdf));
+            openOverlay(pdfUrl);
+        };
+        grid.appendChild(item);
+    } catch (err) {
+        console.error("Error loading thumbnail", file.thumb, err);
+        item.innerHTML = `<div class="title">Failed to load thumbnail: ${file.pdf}</div>`;
+        grid.appendChild(item);
+    }
+});
+
+// Render PDF page
 function renderPage(num) {
     pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 2 }); // zoom
+        const viewport = page.getViewport({ scale: 2 });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         page.render({ canvasContext: ctx, viewport: viewport });
     });
 }
 
-export async function openOverlay(pdfUrl) {
+// Open overlay and render PDF
+async function openOverlay(pdfUrl) {
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'flex';
-    
     try {
-        // Fetch PDF as arrayBuffer to avoid GitHub CORS/content-type issues
         const response = await fetch(pdfUrl);
-        if (!response.ok) throw new Error("Network error loading PDF");
+        if (!response.ok) throw new Error("Failed to fetch PDF");
         const pdfData = await response.arrayBuffer();
-
         pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
         renderPage(1);
     } catch (err) {
-        console.error("PDF failed to load:", err);
+        console.error("Error loading PDF", err);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#fff";
         ctx.font = "20px sans-serif";
@@ -99,7 +108,7 @@ function closeOverlay() {
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'none';
     pdfDoc = null;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 window.openOverlay = openOverlay;
