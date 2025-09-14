@@ -59,6 +59,7 @@
             text-transform: uppercase;
             font-size: 1em;
             color: #333;
+            cursor: pointer;
         }
 
         /* PDF Viewer Modal */
@@ -81,18 +82,23 @@
             position: relative;
             width: 95%;
             height: 95%;
-            overflow-y: auto;
+            overflow: auto;
             background-color: black;
+        }
+        .pdf-pages-container {
+            transform-origin: center top;
+            transition: transform 0.2s ease-out;
+            padding-top: 60px; /* Space for the controls */
         }
         .pdf-canvas {
             display: block;
-            margin: 0 auto 28px auto; /* Decreased margin to 28px */
+            margin: 0 auto 28px auto;
             max-width: 100%;
             height: auto;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
         
-        /* Top Controls (X, Zoom) */
+        /* Top Controls (x, Zoom) */
         .top-controls {
             position: fixed;
             top: 20px;
@@ -104,8 +110,6 @@
             transition: opacity 0.5s ease-in-out;
             opacity: 0;
             color: white;
-            font-family: monospace;
-            font-size: 20px;
         }
         .top-controls-visible {
             opacity: 1;
@@ -113,7 +117,7 @@
         .close {
             font-family: monospace;
             font-size: 40px;
-            font-weight: bold;
+            font-weight: 100; /* Thinner font weight */
             cursor: pointer;
         }
         .zoom-controls {
@@ -145,15 +149,34 @@
         }
         .modal-content::-webkit-scrollbar-thumb {
             background-color: rgba(0, 0, 0, 0.7);
-            border-radius: 0; /* Makes it a rectangle */
+            border-radius: 0;
         }
         .modal-content::-webkit-scrollbar-track {
             background-color: transparent;
         }
-        /* For Firefox */
         .modal-content {
             scrollbar-color: rgba(0, 0, 0, 0.7) transparent;
             scrollbar-width: thin;
+        }
+
+        /* Contact Modal Styles */
+        .contact-box {
+            background-color: white;
+            color: #333;
+            font-family: monospace;
+            padding: 40px;
+            border-radius: 8px;
+            text-align: center;
+            line-height: 1.5;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-size: 1.2em;
+        }
+        .contact-box a {
+            color: #333;
+            text-decoration: none;
+        }
+        .contact-box a:hover {
+            text-decoration: underline;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
@@ -164,7 +187,7 @@
 <div id="grid-container" class="grid-container">
     </div>
 
-<div class="footer-bar">RACHEL PEARL STUART</div>
+<div class="footer-bar" onclick="openContactModal()">RACHEL PEARL STUART</div>
 
 <div id="pdfModal" class="modal">
     <div id="topControls" class="top-controls">
@@ -173,10 +196,11 @@
             <span id="zoomLevel">150%</span>
             <button id="zoomInBtn" class="zoom-button">+</button>
         </div>
-        <span class="close" onclick="closePdfModal()">X</span>
+        <span class="close" onclick="closePdfModal()">x</span>
     </div>
     <div id="pdf-viewer-container" class="modal-content">
-        </div>
+        <div id="pdf-pages-container"></div>
+    </div>
 </div>
 
 <script>
@@ -187,6 +211,7 @@
     const gridContainer = document.getElementById('grid-container');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+    const pdfPagesContainer = document.getElementById('pdf-pages-container');
     const topControls = document.getElementById('topControls');
     const zoomInBtn = document.getElementById('zoomInBtn');
     const zoomOutBtn = document.getElementById('zoomOutBtn');
@@ -229,11 +254,11 @@
             });
     }
 
-    async function renderPdf(pdf, container, scale) {
+    async function renderPdf(pdf, container) {
         container.innerHTML = '';
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale: 1 }); // Always render at a base scale of 1
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
             const canvasContext = canvas.getContext('2d');
@@ -248,30 +273,54 @@
     async function openPdf(pdfUrl) {
         modal.classList.add('show');
         topControls.classList.add('top-controls-visible');
-        pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
+        pdfPagesContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
+        pdfViewerContainer.style.overflow = 'auto';
+        pdfViewerContainer.style.backgroundColor = 'black';
+        pdfViewerContainer.style.paddingTop = '60px'; // Re-add padding for top controls
+
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
-            await renderPdf(currentPdf, pdfViewerContainer, scale);
+            await renderPdf(currentPdf, pdfPagesContainer);
+            pdfPagesContainer.style.transform = `scale(${scale})`; // Apply initial zoom
+            zoomControls.style.display = 'flex';
         } catch (error) {
             console.error('Error loading PDF:', error);
-            pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
+            pdfPagesContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
         }
+    }
+    
+    function openContactModal() {
+        modal.classList.add('show');
+        topControls.classList.add('top-controls-visible');
+        zoomControls.style.display = 'none';
+
+        pdfViewerContainer.style.overflow = 'hidden';
+        pdfViewerContainer.style.backgroundColor = 'transparent';
+        pdfViewerContainer.style.paddingTop = '0'; // Remove padding for static content
+        
+        pdfPagesContainer.innerHTML = `
+            <div class="contact-box">
+                <p>CONTACT:</p>
+                <a href="mailto:rachelpearlstuart@gmail.com">rachelpearlstuart@gmail.com</a>
+            </div>
+        `;
     }
 
     function closePdfModal() {
         modal.classList.remove('show');
-        pdfViewerContainer.innerHTML = '';
+        pdfPagesContainer.innerHTML = '';
         currentPdf = null;
         scale = 1.5;
         zoomLevelSpan.textContent = "150%";
     }
 
+    const zoomControls = document.querySelector('.zoom-controls');
     zoomInBtn.onclick = () => {
         if (currentPdf) {
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+            pdfPagesContainer.style.transform = `scale(${scale})`;
         }
     };
 
@@ -279,7 +328,7 @@
         if (currentPdf && scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+            pdfPagesContainer.style.transform = `scale(${scale})`;
         }
     };
 
