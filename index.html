@@ -70,6 +70,12 @@
         .footer-bar a:hover {
             text-decoration: underline;
         }
+        .footer-bar .contact-link-hidden {
+            display: none;
+        }
+        .footer-bar .rps-text {
+            cursor: pointer;
+        }
 
         /* PDF Viewer Modal */
         .modal {
@@ -121,7 +127,7 @@
         }
         .close {
             font-family: monospace;
-            font-size: 40px;
+            font-size: 10px; /* Reduced to 25% of 40px */
             font-weight: 100;
             cursor: pointer;
         }
@@ -173,8 +179,8 @@
     </div>
 
 <div class="footer-bar">
-    <a href="mailto:rachelpearlstuart@gmail.com">CONTACT</a>
-    <span>RACHEL PEARL STUART</span>
+    <a href="mailto:rachelpearlstuart@gmail.com" class="contact-link contact-link-hidden">CONTACT</a>
+    <span class="rps-text">RACHEL PEARL STUART</span>
 </div>
 
 <div id="pdfModal" class="modal">
@@ -202,9 +208,11 @@
     const zoomInBtn = document.getElementById('zoomInBtn');
     const zoomOutBtn = document.getElementById('zoomOutBtn');
     const zoomLevelSpan = document.getElementById('zoomLevel');
+    const rpsText = document.querySelector('.rps-text');
+    const contactLink = document.querySelector('.contact-link');
 
     let currentPdf = null;
-    let scale = 1.0; // Changed initial scale to 1.0 (100%)
+    let scale = 1.0;
     let controlsTimeout;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
@@ -312,6 +320,11 @@
         if (event.target === modal) {
             closePdfModal();
         }
+    };
+
+    // New logic for showing the contact link on click
+    rpsText.onclick = function() {
+        contactLink.classList.remove('contact-link-hidden');
     };
 
     document.addEventListener('DOMContentLoaded', fetchAndRenderGrid);
