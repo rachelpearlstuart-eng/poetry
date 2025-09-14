@@ -29,56 +29,70 @@ canvas { display:block; margin:auto; background:#333; }
 <script type="module">
 import * as pdfjsLib from './pdfjs/pdf.mjs';
 
+// GitHub info
 const username = "rachelpearlstuart-eng";
 const repo = "poetry";
 const branch = "main";
 const baseRaw = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/`;
 
+// PDF + thumbnail list
 const pdfFiles = [
   { pdf: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.pdf", thumb: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.png" },
   { pdf: "02 - PRETEND (2025, JUNE)-compressed.pdf", thumb: "02 - PRETEND (2025, JUNE)-compressed.png" },
   { pdf: "03 - CONE CAN (2025, AUGUST)-compressed.pdf", thumb: "03 - CONE CAN (2025, AUGUST)-compressed.png" }
 ];
 
-const grid = document.getElementById("pdfGrid");
+// Helper to encode GitHub raw URLs properly
+function githubRawUrl(filename) {
+    return baseRaw + filename.split("/").map(encodeURIComponent).join("/");
+}
 
+// Build grid
+const grid = document.getElementById("pdfGrid");
 pdfFiles.forEach(file => {
     const item = document.createElement("div");
     item.className = "grid-item";
     item.innerHTML = `
-        <img src="${baseRaw + encodeURIComponent(file.thumb)}" alt="${file.pdf}">
+        <img src="${githubRawUrl(file.thumb)}" alt="${file.pdf}">
         <div class="title">${file.pdf}</div>
     `;
-    item.onclick = () => openOverlay(baseRaw + encodeURIComponent(file.pdf));
+    item.onclick = () => openOverlay(githubRawUrl(file.pdf));
     grid.appendChild(item);
 });
 
+// PDF.js setup
 let pdfDoc = null;
 const canvas = document.getElementById('pdfCanvas');
 const ctx = canvas.getContext('2d');
 
 function renderPage(num) {
     pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 2 }); // increase scale for clarity
-        canvas.height = viewport.height;
+        const viewport = page.getViewport({ scale: 2 }); // zoom
         canvas.width = viewport.width;
+        canvas.height = viewport.height;
         page.render({ canvasContext: ctx, viewport: viewport });
     });
 }
 
-export function openOverlay(pdfUrl) {
+export async function openOverlay(pdfUrl) {
     const overlay = document.getElementById('overlay');
     overlay.style.display = 'flex';
-    pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise.then(pdf => {
-        pdfDoc = pdf;
+    
+    try {
+        // Fetch PDF as arrayBuffer to avoid GitHub CORS/content-type issues
+        const response = await fetch(pdfUrl);
+        if (!response.ok) throw new Error("Network error loading PDF");
+        const pdfData = await response.arrayBuffer();
+
+        pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
         renderPage(1);
-    }).catch(err => {
+    } catch (err) {
         console.error("PDF failed to load:", err);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#fff";
         ctx.font = "20px sans-serif";
         ctx.fillText("Failed to load PDF", 50, 50);
-    });
+    }
 }
 
 function closeOverlay() {
