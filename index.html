@@ -127,7 +127,7 @@
         }
         .close {
             font-family: monospace;
-            font-size: 10px; /* Reduced to 25% of 40px */
+            font-size: 10px;
             font-weight: 100;
             cursor: pointer;
         }
@@ -212,7 +212,8 @@
     const contactLink = document.querySelector('.contact-link');
 
     let currentPdf = null;
-    let scale = 1.0;
+    let basePageWidth = 0; // The base width for all pages
+    let zoomFactor = 1.0; // The user's zoom level
     let controlsTimeout;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
@@ -248,18 +249,28 @@
             });
     }
 
-    async function renderPdf(pdf, container, scale) {
+    async function renderPdf(pdf, container) {
         container.innerHTML = '';
+        if (basePageWidth === 0) {
+            const firstPage = await pdf.getPage(1);
+            basePageWidth = firstPage.getViewport({ scale: 1 }).width;
+        }
+
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale: 1 });
+            
+            // Calculate scale to make all pages the same width
+            const pageScale = (basePageWidth / viewport.width) * zoomFactor;
+            const newViewport = page.getViewport({ scale: pageScale });
+
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
             const canvasContext = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            canvas.height = newViewport.height;
+            canvas.width = newViewport.width;
             container.appendChild(canvas);
-            const renderContext = { canvasContext, viewport };
+            const renderContext = { canvasContext, viewport: newViewport };
             await page.render(renderContext).promise;
         }
     }
@@ -275,7 +286,8 @@
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
-            await renderPdf(currentPdf, pdfViewerContainer, scale);
+            basePageWidth = 0; // Reset base width for new PDF
+            await renderPdf(currentPdf, pdfViewerContainer);
             zoomControls.style.display = 'flex';
         } catch (error) {
             console.error('Error loading PDF:', error);
@@ -287,24 +299,24 @@
         modal.classList.remove('show');
         pdfViewerContainer.innerHTML = '';
         currentPdf = null;
-        scale = 1.0;
+        zoomFactor = 1.0;
         zoomLevelSpan.textContent = "100%";
     }
 
     const zoomControls = document.querySelector('.zoom-controls');
     zoomInBtn.onclick = () => {
         if (currentPdf) {
-            scale += 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+            zoomFactor += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(zoomFactor * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer);
         }
     };
 
     zoomOutBtn.onclick = () => {
-        if (currentPdf && scale > 0.25) {
-            scale -= 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+        if (currentPdf && zoomFactor > 0.25) {
+            zoomFactor -= 0.25;
+            zoomLevelSpan.textContent = `${Math.round(zoomFactor * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer);
         }
     };
 
@@ -322,7 +334,6 @@
         }
     };
 
-    // New logic for showing the contact link on click
     rpsText.onclick = function() {
         contactLink.classList.remove('contact-link-hidden');
     };
