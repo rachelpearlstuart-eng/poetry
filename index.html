@@ -8,7 +8,7 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px 20px 60px 20px; /* Added padding at bottom for the bar */
+            padding: 20px 20px 60px 20px;
             background-color: white;
         }
         .grid-container {
@@ -159,17 +159,44 @@
                 gridContainer.innerHTML = `<p>Failed to load files from GitHub. Error: ${error.message}</p>`;
             });
     }
-    
+
     function openPdf(pdfUrl) {
-        // Use a custom PDF.js viewer URL that hides the download button
-        const viewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#zoom=page-fit`;
+        // Use a custom viewer URL that allows for external CSS injection
+        const viewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`;
+        
+        // Hide the modal's close button while the PDF is loading
+        modal.classList.add('loading');
+        
         pdfViewer.src = viewerUrl;
         modal.classList.add('show');
+
+        // Wait for the iframe to load, then inject custom CSS to hide the toolbar
+        pdfViewer.onload = () => {
+            try {
+                const style = document.createElement('style');
+                style.textContent = `
+                    #outerContainer {
+                        background-color: black;
+                    }
+                    #toolbarContainer {
+                        display: none !important;
+                    }
+                `;
+                pdfViewer.contentDocument.head.appendChild(style);
+                
+                // Show the close button once the viewer is ready
+                modal.classList.remove('loading');
+                
+            } catch (e) {
+                console.error("Could not inject CSS into the PDF viewer iframe:", e);
+                // Fallback or user notification if the CSS injection fails
+            }
+        };
     }
 
     function closePdfModal() {
         modal.classList.remove('show');
-        pdfViewer.src = ''; // Clear src to stop loading
+        pdfViewer.src = '';
     }
 
     window.onclick = function(event) {
