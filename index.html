@@ -61,14 +61,18 @@
             display: flex;
             justify-content: flex-end;
             align-items: center;
-            gap: 0.85cm;
+            gap: 0.425cm; /* Reduced space by 50% */
         }
         .footer-bar a {
-            color: #A11C0B;
+            color: #333; /* New color to match RPS text */
             text-decoration: none;
+            border: 1px solid #333; /* Added button-like border */
+            padding: 5px 10px; /* Added padding */
+            border-radius: 4px; /* Slightly rounded corners */
+            transition: background-color 0.2s;
         }
         .footer-bar a:hover {
-            text-decoration: underline;
+            background-color: #f0f0f0;
         }
         .footer-bar .contact-link-hidden {
             display: none;
