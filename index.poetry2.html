@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PDF Grid</title>
+<style>
+body { font-family:sans-serif; margin:0; background:#111; color:#fff; }
+.grid { display:grid; gap:20px; padding:20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.grid-item { cursor:pointer; text-align:center; }
+.grid-item img { width:100%; height:auto; border:2px solid #fff; }
+.title { margin-top:5px; font-size:0.9em; word-wrap:break-word; }
+.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); justify-content:center; align-items:center; z-index:999; flex-direction: column; }
+.close { position:absolute; top:20px; right:30px; font-size:2em; cursor:pointer; color:#fff; }
+.pdf-container { width:80%; height:90%; overflow:auto; border:none; }
+canvas { display:block; margin:auto; }
+</style>
+</head>
+<body>
+
+<div class="grid" id="pdfGrid"></div>
+
+<div class="overlay" id="overlay">
+  <span class="close" onclick="closeOverlay()">&times;</span>
+  <div class="pdf-container">
+    <canvas id="pdfCanvas"></canvas>
+  </div>
+</div>
+
+<script type="module">
+import * as pdfjsLib from './pdfjs/pdf.mjs';
+
+const username = "rachelpearlstuart-eng";
+const repo = "poetry";
+const branch = "main";
+const baseRaw = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/`;
+
+// List your PDFs (auto-generated from your current repo files)
+const pdfFiles = [
+  { pdf: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.pdf", thumb: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.png" },
+  { pdf: "02 - PRETEND (2025, JUNE)-compressed.pdf", thumb: "02 - PRETEND (2025, JUNE)-compressed.png" },
+  { pdf: "03 - CONE CAN (2025, AUGUST)-compressed.pdf", thumb: "03 - CONE CAN (2025, AUGUST)-compressed.png" }
+];
+
+const grid = document.getElementById("pdfGrid");
+
+pdfFiles.forEach(file => {
+    const item = document.createElement("div");
+    item.className = "grid-item";
+    item.innerHTML = `
+        <img src="${baseRaw + file.thumb}" alt="${file.pdf}">
+        <div class="title">${file.pdf}</div>
+    `;
+    item.onclick = () => openOverlay(baseRaw + file.pdf);
+    grid.appendChild(item);
+});
+
+let pdfDoc = null;
+const canvas = document.getElementById('pdfCanvas');
+const ctx = canvas.getContext('2d');
+
+function renderPage(num) {
+    pdfDoc.getPage(num).then(page => {
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        page.render({ canvasContext: ctx, viewport: viewport });
+    });
+}
+
+export function openOverlay(pdfUrl) {
+    const overlay = document.getElementById('overlay');
+    overlay.style.display = 'flex';
+    pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
+        pdfDoc = pdf;
+        renderPage(1);
+    });
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById('overlay');
+    overlay.style.display = 'none';
+    pdfDoc = null;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+window.openOverlay = openOverlay;
+window.closeOverlay = closeOverlay;
+
+</script>
+
+</body>
+</html>
