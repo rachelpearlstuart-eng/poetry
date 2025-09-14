@@ -54,7 +54,6 @@
             background-color: rgba(0, 0, 0, 1);
             justify-content: center;
             align-items: center;
-            transition: opacity 0.3s;
         }
         .modal.show {
             display: flex;
@@ -63,11 +62,16 @@
             position: relative;
             width: 95%;
             height: 95%;
-            overflow: auto; /* Enables scrolling for the PDF container */
+            overflow-y: auto;
             background-color: black;
+            padding-top: 60px; /* Space for the toolbar */
         }
-        .pdf-canvas-container {
-            /* This is where the PDF pages will be rendered */
+        .pdf-canvas {
+            display: block;
+            margin: 0 auto 40px auto; /* Increased margin for spacing */
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
         .close {
             position: absolute;
@@ -95,6 +99,39 @@
             font-size: 1em;
             color: #333;
         }
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 1001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0;
+        }
+        .toolbar-visible {
+            opacity: 1;
+        }
+        .toolbar-button {
+            background: none;
+            border: 1px solid white;
+            color: white;
+            font-size: 20px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .toolbar-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
@@ -107,6 +144,11 @@
 <div class="footer-bar">RACHEL PEARL STUART</div>
 
 <div id="pdfModal" class="modal">
+    <div id="toolbar" class="toolbar">
+        <button id="zoomOutBtn" class="toolbar-button">-</button>
+        <span id="zoomLevel">150%</span>
+        <button id="zoomInBtn" class="toolbar-button">+</button>
+    </div>
     <span class="close" onclick="closePdfModal()">&times;</span>
     <div id="pdf-viewer-container" class="modal-content">
         </div>
@@ -120,39 +162,38 @@
     const gridContainer = document.getElementById('grid-container');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+    const toolbar = document.getElementById('toolbar');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomLevelSpan = document.getElementById('zoomLevel');
 
-    // PDF.js worker setup
+    let currentPdf = null;
+    let scale = 1.5; // Initial zoom level
+    let toolbarTimeout;
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     function fetchAndRenderGrid() {
         fetch(apiUrl)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`GitHub API Error: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
                 return response.json();
             })
             .then(files => {
                 const pdfs = files.filter(f => f.name.endsWith('.pdf'));
                 const pngs = files.filter(f => f.name.endsWith('.png'));
-
                 if (pdfs.length === 0) {
                     gridContainer.innerHTML = '<p>No PDF files found in this repository.</p>';
                     return;
                 }
-
                 pdfs.sort((a, b) => a.name.localeCompare(b.name));
-
                 pdfs.forEach(pdf => {
                     const pdfNameBase = pdf.name.replace('.pdf', '');
                     const png = pngs.find(p => p.name === `${pdfNameBase}.png`);
-                    
                     const thumbnailSrc = png ? png.download_url : pdf.download_url;
-
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
                     gridItem.onclick = () => openPdf(pdf.download_url);
-
                     gridItem.innerHTML = `<img src="${thumbnailSrc}" alt="${pdfNameBase}" class="thumbnail">`;
                     gridContainer.appendChild(gridItem);
                 });
@@ -163,33 +204,30 @@
             });
     }
 
+    async function renderPdf(pdf, container, scale) {
+        container.innerHTML = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.className = 'pdf-canvas';
+            const canvasContext = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            container.appendChild(canvas);
+            const renderContext = { canvasContext, viewport };
+            await page.render(renderContext).promise;
+        }
+    }
+
     async function openPdf(pdfUrl) {
         modal.classList.add('show');
+        toolbar.classList.add('toolbar-visible');
         pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
-
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
-            const pdf = await loadingTask.promise;
-            
-            pdfViewerContainer.innerHTML = ''; // Clear loading message
-
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                const page = await pdf.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 1.5 }); // Adjust scale as needed
-                
-                const canvas = document.createElement('canvas');
-                const canvasContext = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                
-                pdfViewerContainer.appendChild(canvas);
-
-                const renderContext = {
-                    canvasContext,
-                    viewport,
-                };
-                await page.render(renderContext).promise;
-            }
+            currentPdf = await loadingTask.promise;
+            await renderPdf(currentPdf, pdfViewerContainer, scale);
         } catch (error) {
             console.error('Error loading PDF:', error);
             pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
@@ -198,8 +236,35 @@
 
     function closePdfModal() {
         modal.classList.remove('show');
-        pdfViewerContainer.innerHTML = ''; // Clear rendered PDF
+        pdfViewerContainer.innerHTML = '';
+        currentPdf = null;
+        scale = 1.5; // Reset zoom level
+        zoomLevelSpan.textContent = "150%";
     }
+
+    zoomInBtn.onclick = () => {
+        if (currentPdf) {
+            scale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer, scale);
+        }
+    };
+
+    zoomOutBtn.onclick = () => {
+        if (currentPdf && scale > 0.25) {
+            scale -= 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer, scale);
+        }
+    };
+
+    modal.onmousemove = () => {
+        toolbar.classList.add('toolbar-visible');
+        clearTimeout(toolbarTimeout);
+        toolbarTimeout = setTimeout(() => {
+            toolbar.classList.remove('toolbar-visible');
+        }, 2000); // 2 seconds of inactivity
+    };
 
     window.onclick = function(event) {
         if (event.target === modal) {
