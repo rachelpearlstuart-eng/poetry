@@ -125,11 +125,26 @@
         .top-controls-visible {
             opacity: 1;
         }
+        .close-button {
+            background: none;
+            border: 1px solid white;
+            color: white;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .close-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
         .close {
             font-family: monospace;
-            font-size: 10px;
+            font-size: 20px; /* Doubled from 10px */
             font-weight: 100;
-            cursor: pointer;
         }
         .zoom-controls {
             display: flex;
@@ -190,7 +205,9 @@
             <span id="zoomLevel">100%</span>
             <button id="zoomInBtn" class="zoom-button">+</button>
         </div>
-        <span class="close" onclick="closePdfModal()">x</span>
+        <div class="close-button" onclick="closePdfModal()">
+            <span class="close">x</span>
+        </div>
     </div>
     <div id="pdf-viewer-container" class="modal-content">
         </div>
@@ -212,8 +229,7 @@
     const contactLink = document.querySelector('.contact-link');
 
     let currentPdf = null;
-    let basePageWidth = 0; // The base width for all pages
-    let zoomFactor = 1.0; // The user's zoom level
+    let scale = 1.0;
     let controlsTimeout;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
@@ -249,28 +265,18 @@
             });
     }
 
-    async function renderPdf(pdf, container) {
+    async function renderPdf(pdf, container, scale) {
         container.innerHTML = '';
-        if (basePageWidth === 0) {
-            const firstPage = await pdf.getPage(1);
-            basePageWidth = firstPage.getViewport({ scale: 1 }).width;
-        }
-
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 1 });
-            
-            // Calculate scale to make all pages the same width
-            const pageScale = (basePageWidth / viewport.width) * zoomFactor;
-            const newViewport = page.getViewport({ scale: pageScale });
-
+            const viewport = page.getViewport({ scale });
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
             const canvasContext = canvas.getContext('2d');
-            canvas.height = newViewport.height;
-            canvas.width = newViewport.width;
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
             container.appendChild(canvas);
-            const renderContext = { canvasContext, viewport: newViewport };
+            const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
         }
     }
@@ -286,8 +292,7 @@
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
-            basePageWidth = 0; // Reset base width for new PDF
-            await renderPdf(currentPdf, pdfViewerContainer);
+            await renderPdf(currentPdf, pdfViewerContainer, scale);
             zoomControls.style.display = 'flex';
         } catch (error) {
             console.error('Error loading PDF:', error);
@@ -299,24 +304,24 @@
         modal.classList.remove('show');
         pdfViewerContainer.innerHTML = '';
         currentPdf = null;
-        zoomFactor = 1.0;
+        scale = 1.0;
         zoomLevelSpan.textContent = "100%";
     }
 
     const zoomControls = document.querySelector('.zoom-controls');
     zoomInBtn.onclick = () => {
         if (currentPdf) {
-            zoomFactor += 0.25;
-            zoomLevelSpan.textContent = `${Math.round(zoomFactor * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer);
+            scale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer, scale);
         }
     };
 
     zoomOutBtn.onclick = () => {
-        if (currentPdf && zoomFactor > 0.25) {
-            zoomFactor -= 0.25;
-            zoomLevelSpan.textContent = `${Math.round(zoomFactor * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer);
+        if (currentPdf && scale > 0.25) {
+            scale -= 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+            renderPdf(currentPdf, pdfViewerContainer, scale);
         }
     };
 
