@@ -63,11 +63,11 @@
             position: relative;
             width: 95%;
             height: 95%;
+            overflow: auto; /* Enables scrolling for the PDF container */
+            background-color: black;
         }
-        .pdf-viewer {
-            width: 100%;
-            height: 100%;
-            border: none;
+        .pdf-canvas-container {
+            /* This is where the PDF pages will be rendered */
         }
         .close {
             position: absolute;
@@ -77,6 +77,7 @@
             font-size: 40px;
             font-weight: bold;
             cursor: pointer;
+            z-index: 1001;
         }
         .footer-bar {
             position: fixed;
@@ -95,6 +96,8 @@
             color: #333;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
 </head>
 <body>
 
@@ -105,9 +108,8 @@
 
 <div id="pdfModal" class="modal">
     <span class="close" onclick="closePdfModal()">&times;</span>
-    <div class="modal-content">
-        <iframe id="pdfViewer" class="pdf-viewer" allow="fullscreen"></iframe>
-    </div>
+    <div id="pdf-viewer-container" class="modal-content">
+        </div>
 </div>
 
 <script>
@@ -117,7 +119,10 @@
     
     const gridContainer = document.getElementById('grid-container');
     const modal = document.getElementById('pdfModal');
-    const pdfViewer = document.getElementById('pdfViewer');
+    const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+
+    // PDF.js worker setup
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     function fetchAndRenderGrid() {
         fetch(apiUrl)
@@ -148,9 +153,7 @@
                     gridItem.className = 'grid-item';
                     gridItem.onclick = () => openPdf(pdf.download_url);
 
-                    gridItem.innerHTML = `
-                        <img src="${thumbnailSrc}" alt="${pdfNameBase}" class="thumbnail">
-                    `;
+                    gridItem.innerHTML = `<img src="${thumbnailSrc}" alt="${pdfNameBase}" class="thumbnail">`;
                     gridContainer.appendChild(gridItem);
                 });
             })
@@ -160,43 +163,42 @@
             });
     }
 
-    function openPdf(pdfUrl) {
-        // Use a custom viewer URL that allows for external CSS injection
-        const viewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`;
-        
-        // Hide the modal's close button while the PDF is loading
-        modal.classList.add('loading');
-        
-        pdfViewer.src = viewerUrl;
+    async function openPdf(pdfUrl) {
         modal.classList.add('show');
+        pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
 
-        // Wait for the iframe to load, then inject custom CSS to hide the toolbar
-        pdfViewer.onload = () => {
-            try {
-                const style = document.createElement('style');
-                style.textContent = `
-                    #outerContainer {
-                        background-color: black;
-                    }
-                    #toolbarContainer {
-                        display: none !important;
-                    }
-                `;
-                pdfViewer.contentDocument.head.appendChild(style);
+        try {
+            const loadingTask = pdfjsLib.getDocument(pdfUrl);
+            const pdf = await loadingTask.promise;
+            
+            pdfViewerContainer.innerHTML = ''; // Clear loading message
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 }); // Adjust scale as needed
                 
-                // Show the close button once the viewer is ready
-                modal.classList.remove('loading');
+                const canvas = document.createElement('canvas');
+                const canvasContext = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
                 
-            } catch (e) {
-                console.error("Could not inject CSS into the PDF viewer iframe:", e);
-                // Fallback or user notification if the CSS injection fails
+                pdfViewerContainer.appendChild(canvas);
+
+                const renderContext = {
+                    canvasContext,
+                    viewport,
+                };
+                await page.render(renderContext).promise;
             }
-        };
+        } catch (error) {
+            console.error('Error loading PDF:', error);
+            pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
+        }
     }
 
     function closePdfModal() {
         modal.classList.remove('show');
-        pdfViewer.src = '';
+        pdfViewerContainer.innerHTML = ''; // Clear rendered PDF
     }
 
     window.onclick = function(event) {
