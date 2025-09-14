@@ -1,119 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>PDF Grid</title>
-<style>
-body { font-family:sans-serif; margin:0; background:#111; color:#fff; }
-.grid { display:grid; gap:20px; padding:20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-.grid-item { cursor:pointer; text-align:center; }
-.grid-item img { width:100%; height:auto; border:2px solid #fff; }
-.title { margin-top:5px; font-size:0.9em; word-wrap:break-word; }
-.overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); justify-content:center; align-items:center; z-index:999; flex-direction: column; overflow:auto; }
-.close { position:absolute; top:20px; right:30px; font-size:2em; cursor:pointer; color:#fff; }
-.pdf-container { width:90%; height:90%; overflow:auto; }
-canvas { display:block; margin:auto; background:#333; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poetry Collection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .grid-item {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .grid-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .thumbnail {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .title {
+            padding: 15px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+            display: block;
+        }
+        .title:hover {
+            text-decoration: underline;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 1);
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            position: relative;
+            width: 95%;
+            height: 95%;
+        }
+        .pdf-viewer {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
-<div class="grid" id="pdfGrid"></div>
+<div id="grid-container" class="grid-container">
+    </div>
 
-<div class="overlay" id="overlay">
-  <span class="close" onclick="closeOverlay()">&times;</span>
-  <div class="pdf-container">
-    <canvas id="pdfCanvas"></canvas>
-  </div>
+<div id="pdfModal" class="modal">
+    <span class="close" onclick="closePdfModal()">&times;</span>
+    <div class="modal-content">
+        <iframe id="pdfViewer" class="pdf-viewer"></iframe>
+    </div>
 </div>
 
-<script type="module">
-import * as pdfjsLib from './pdfjs/pdf.mjs';
+<script>
+    const repoOwner = 'rachelpearlstuart-eng';
+    const repoName = 'poetry';
+    const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
+    
+    const gridContainer = document.getElementById('grid-container');
+    const modal = document.getElementById('pdfModal');
+    const pdfViewer = document.getElementById('pdfViewer');
 
-const username = "rachelpearlstuart-eng";
-const repo = "poetry";
-const branch = "main";
-const baseRaw = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/`;
+    function fetchAndRenderGrid() {
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`GitHub API Error: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(files => {
+                const pdfs = files.filter(f => f.name.endsWith('.pdf'));
+                const pngs = files.filter(f => f.name.endsWith('.png'));
 
-const pdfFiles = [
-  { pdf: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.pdf", thumb: "01 - SUPPOSE MISCHIEF (2025, FEBRUARY)-compressed.png" },
-  { pdf: "02 - PRETEND (2025, JUNE)-compressed.pdf", thumb: "02 - PRETEND (2025, JUNE)-compressed.png" },
-  { pdf: "03 - CONE CAN (2025, AUGUST)-compressed.pdf", thumb: "03 - CONE CAN (2025, AUGUST)-compressed.png" }
-];
+                if (pdfs.length === 0) {
+                    gridContainer.innerHTML = '<p>No PDF files found in this repository.</p>';
+                    return;
+                }
 
-const grid = document.getElementById("pdfGrid");
-const canvas = document.getElementById('pdfCanvas');
-const ctx = canvas.getContext('2d');
-let pdfDoc = null;
+                pdfs.sort((a, b) => a.name.localeCompare(b.name));
 
-// Helper: fetch file as Blob and return object URL
-async function fetchBlobUrl(path) {
-    const response = await fetch(baseRaw + path);
-    if (!response.ok) throw new Error("Failed to fetch " + path);
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-}
+                pdfs.forEach(pdf => {
+                    const pdfNameBase = pdf.name.replace('.pdf', '');
+                    const png = pngs.find(p => p.name === `${pdfNameBase}.png`);
+                    
+                    const thumbnailSrc = png ? png.download_url : pdf.download_url;
+                    const titleText = pdfNameBase.replace(/-/g, ' ').replace(/_/g, ' ').trim();
 
-// Build grid with thumbnails
-pdfFiles.forEach(async file => {
-    const item = document.createElement("div");
-    item.className = "grid-item";
-    try {
-        const thumbUrl = await fetchBlobUrl(encodeURIComponent(file.thumb));
-        item.innerHTML = `
-            <img src="${thumbUrl}" alt="${file.pdf}">
-            <div class="title">${file.pdf}</div>
-        `;
-        item.onclick = async () => {
-            const pdfUrl = await fetchBlobUrl(encodeURIComponent(file.pdf));
-            openOverlay(pdfUrl);
-        };
-        grid.appendChild(item);
-    } catch (err) {
-        console.error("Error loading thumbnail", file.thumb, err);
-        item.innerHTML = `<div class="title">Failed to load thumbnail: ${file.pdf}</div>`;
-        grid.appendChild(item);
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'grid-item';
+                    gridItem.onclick = () => openPdf(pdf.download_url);
+
+                    gridItem.innerHTML = `
+                        <img src="${thumbnailSrc}" alt="${titleText}" class="thumbnail">
+                        <span class="title">${titleText}</span>
+                    `;
+
+                    gridContainer.appendChild(gridItem);
+                });
+            })
+            .catch(error => {
+                console.error(error);
+                gridContainer.innerHTML = `<p>Failed to load files from GitHub. Error: ${error.message}</p>`;
+            });
     }
-});
 
-// Render PDF page
-function renderPage(num) {
-    pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: 2 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        page.render({ canvasContext: ctx, viewport: viewport });
-    });
-}
-
-// Open overlay and render PDF
-async function openOverlay(pdfUrl) {
-    const overlay = document.getElementById('overlay');
-    overlay.style.display = 'flex';
-    try {
-        const response = await fetch(pdfUrl);
-        if (!response.ok) throw new Error("Failed to fetch PDF");
-        const pdfData = await response.arrayBuffer();
-        pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
-        renderPage(1);
-    } catch (err) {
-        console.error("Error loading PDF", err);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#fff";
-        ctx.font = "20px sans-serif";
-        ctx.fillText("Failed to load PDF", 50, 50);
+    function openPdf(pdfUrl) {
+        pdfViewer.src = pdfUrl;
+        modal.classList.add('show');
     }
-}
 
-function closeOverlay() {
-    const overlay = document.getElementById('overlay');
-    overlay.style.display = 'none';
-    pdfDoc = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
+    function closePdfModal() {
+        modal.classList.remove('show');
+        pdfViewer.src = '';
+    }
 
-window.openOverlay = openOverlay;
-window.closeOverlay = closeOverlay;
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            closePdfModal();
+        }
+    };
 
+    // Load the grid when the page is ready
+    document.addEventListener('DOMContentLoaded', fetchAndRenderGrid);
 </script>
+
 </body>
 </html>
