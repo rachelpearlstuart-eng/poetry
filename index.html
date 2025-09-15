@@ -231,7 +231,8 @@
     const rpsText = document.querySelector('.rps-text');
     const contactLink = document.querySelector('.contact-link');
 
-    let scale = 3.0; /* Default zoom set to 300% */
+    // Global scale variable to be updated per PDF
+    let scale = 3.0;
     let currentPdf = null;
     let controlsTimeout;
 
@@ -252,12 +253,17 @@
                 }
                 pdfs.sort((a, b) => a.name.localeCompare(b.name));
                 pdfs.forEach(pdf => {
+                    // Extract custom zoom from filename, default to 3.0 (300%) if not found
+                    const match = pdf.name.match(/_(\d+)\.pdf$/);
+                    const customScale = match ? parseInt(match[1]) / 100 : 3.0;
+
                     const pdfNameBase = pdf.name.replace('.pdf', '');
-                    const png = pngs.find(p => p.name === `${pdfNameBase}.png`);
+                    const png = pngs.find(p => p.name.startsWith(pdfNameBase) && p.name.endsWith('.png'));
                     const thumbnailSrc = png ? png.download_url : pdf.download_url;
+
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
-                    gridItem.onclick = () => openPdf(pdf.download_url);
+                    gridItem.onclick = () => openPdf(pdf.download_url, customScale);
                     gridItem.innerHTML = `<img src="${thumbnailSrc}" alt="${pdfNameBase}" class="thumbnail">`;
                     gridContainer.appendChild(gridItem);
                 });
@@ -284,7 +290,7 @@
         }
     }
 
-    async function openPdf(pdfUrl) {
+    async function openPdf(pdfUrl, initialScale) {
         modal.classList.add('show');
         topControls.classList.add('top-controls-visible');
         pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
@@ -295,6 +301,7 @@
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
+            scale = initialScale; // Set global scale to custom value
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             await renderPdf(currentPdf, pdfViewerContainer, scale);
             zoomControls.style.display = 'flex';
@@ -308,8 +315,6 @@
         modal.classList.remove('show');
         pdfViewerContainer.innerHTML = '';
         currentPdf = null;
-        scale = 3.0; /* Reset scale to 3.0 for next open */
-        zoomLevelSpan.textContent = "300%";
     }
 
     const zoomControls = document.querySelector('.zoom-controls');
