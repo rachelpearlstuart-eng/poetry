@@ -231,7 +231,6 @@
     const rpsText = document.querySelector('.rps-text');
     const contactLink = document.querySelector('.contact-link');
 
-    // Global scale variable to be updated per PDF
     let scale = 3.0;
     let currentPdf = null;
     let controlsTimeout;
@@ -253,9 +252,11 @@
                 }
                 pdfs.sort((a, b) => a.name.localeCompare(b.name));
                 pdfs.forEach(pdf => {
-                    // Extract custom zoom from filename, default to 3.0 (300%) if not found
                     const match = pdf.name.match(/_(\d+)\.pdf$/);
                     const customScale = match ? parseInt(match[1]) / 100 : 3.0;
+
+                    // This is the new debugging line
+                    console.log(`Processing: ${pdf.name}. Detected zoom: ${Math.round(customScale * 100)}%`);
 
                     const pdfNameBase = pdf.name.replace('.pdf', '');
                     const png = pngs.find(p => p.name.startsWith(pdfNameBase) && p.name.endsWith('.png'));
@@ -301,7 +302,7 @@
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
-            scale = initialScale; // Set global scale to custom value
+            scale = initialScale;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             await renderPdf(currentPdf, pdfViewerContainer, scale);
             zoomControls.style.display = 'flex';
