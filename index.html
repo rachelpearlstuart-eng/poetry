@@ -174,23 +174,16 @@
         /* Audio Player */
         .audio-player-container {
             display: none;
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 1001;
+            width: 170px; /* New, smaller width */
             background-color: rgba(0, 0, 0, 0.7);
             padding: 10px 15px;
             border-radius: 20px;
             color: white;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            width: 350px;
+            flex-direction: column;
+            gap: 5px;
         }
         .audio-player-container.visible {
             display: flex;
-            flex-direction: column;
-            gap: 5px;
-            opacity: 1;
         }
         .audio-controls {
             display: flex;
@@ -272,13 +265,15 @@
                 <span id="time-display" class="time-display">0:00 / 0:00</span>
             </div>
         </div>
-        <div class="zoom-controls">
-            <button id="zoomOutBtn" class="zoom-button">-</button>
-            <span id="zoomLevel">100%</span>
-            <button id="zoomInBtn" class="zoom-button">+</button>
-        </div>
-        <div class="close-button" onclick="closePdfModal()">
-            <span class="close">x</span>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="zoom-controls">
+                <button id="zoomOutBtn" class="zoom-button">-</button>
+                <span id="zoomLevel">100%</span>
+                <button id="zoomInBtn" class="zoom-button">+</button>
+            </div>
+            <div class="close-button" onclick="closePdfModal()">
+                <span class="close">x</span>
+            </div>
         </div>
     </div>
     <div id="pdf-viewer-container" class="modal-content">
@@ -380,7 +375,6 @@
         pdfViewerContainer.style.backgroundColor = 'black';
         pdfViewerContainer.style.paddingTop = '60px';
         
-        // Handle Audio Player
         if (audioUrl) {
             audioPlayerContainer.classList.add('visible');
             audioPlayer.src = audioUrl;
