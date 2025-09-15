@@ -67,7 +67,7 @@
             color: #333;
             text-decoration: none;
             border: 1px solid #333;
-            padding: 2px 10px; /* Reduced vertical padding */
+            padding: 2px 10px;
             border-radius: 4px;
             transition: background-color 0.2s;
         }
@@ -231,7 +231,7 @@
     const rpsText = document.querySelector('.rps-text');
     const contactLink = document.querySelector('.contact-link');
 
-    let scale = 2.0; /* Default zoom set to 200% */
+    let scale = 3.0; /* Default zoom set to 300% */
     let currentPdf = null;
     let controlsTimeout;
 
@@ -295,7 +295,7 @@
         try {
             const loadingTask = pdfjsLib.getDocument(pdfUrl);
             currentPdf = await loadingTask.promise;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`; /* Set initial zoom text */
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             await renderPdf(currentPdf, pdfViewerContainer, scale);
             zoomControls.style.display = 'flex';
         } catch (error) {
@@ -308,8 +308,8 @@
         modal.classList.remove('show');
         pdfViewerContainer.innerHTML = '';
         currentPdf = null;
-        scale = 2.0; /* Reset scale to 2.0 for next open */
-        zoomLevelSpan.textContent = "200%";
+        scale = 3.0; /* Reset scale to 3.0 for next open */
+        zoomLevelSpan.textContent = "300%";
     }
 
     const zoomControls = document.querySelector('.zoom-controls');
