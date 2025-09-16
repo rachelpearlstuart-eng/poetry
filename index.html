@@ -174,7 +174,7 @@
         /* Audio Player */
         .audio-player-container {
             display: none;
-            width: 170px; /* New, smaller width */
+            width: 170px;
             background-color: rgba(0, 0, 0, 0.7);
             padding: 10px 15px;
             border-radius: 20px;
@@ -255,16 +255,6 @@
 
 <div id="pdfModal" class="modal">
     <div id="topControls" class="top-controls">
-        <div id="audio-player-container" class="audio-player-container">
-            <audio id="audio-player" preload="metadata"></audio>
-            <div class="audio-controls">
-                <button id="play-pause-btn" class="play-pause-btn">▶</button>
-                <div id="progress-bar" class="progress-bar">
-                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
-                </div>
-                <span id="time-display" class="time-display">0:00 / 0:00</span>
-            </div>
-        </div>
         <div style="display: flex; align-items: center; gap: 15px;">
             <div class="zoom-controls">
                 <button id="zoomOutBtn" class="zoom-button">-</button>
@@ -273,6 +263,16 @@
             </div>
             <div class="close-button" onclick="closePdfModal()">
                 <span class="close">x</span>
+            </div>
+        </div>
+        <div id="audio-player-container" class="audio-player-container">
+            <audio id="audio-player" preload="metadata"></audio>
+            <div class="audio-controls">
+                <button id="play-pause-btn" class="play-pause-btn">▶</button>
+                <div id="progress-bar" class="progress-bar">
+                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                </div>
+                <span id="time-display" class="time-display">0:00 / 0:00</span>
             </div>
         </div>
     </div>
