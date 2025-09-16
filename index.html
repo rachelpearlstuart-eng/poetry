@@ -102,12 +102,17 @@
             overflow: auto;
             background-color: black;
             padding-top: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
         }
-        .pdf-canvas {
+        .pdf-canvas, .image-viewer {
             display: block;
             margin: 0 auto 28px auto;
             height: auto;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            max-width: 100%;
         }
         
         /* Top Controls (x, Zoom) */
@@ -295,7 +300,6 @@
     const rpsText = document.querySelector('.rps-text');
     const contactLink = document.querySelector('.contact-link');
 
-    // Audio Player Elements
     const audioPlayerContainer = document.getElementById('audio-player-container');
     const audioPlayer = document.getElementById('audio-player');
     const playPauseBtn = document.getElementById('play-pause-btn');
@@ -304,9 +308,9 @@
     const timeDisplay = document.getElementById('time-display');
     
     let scale = 3.0;
-    let currentPdf = null;
+    let currentDocument = null;
     let controlsTimeout;
-    let audioFiles;
+    let currentViewerType = null;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -321,27 +325,60 @@
             .then(files => {
                 const pdfs = files.filter(f => f.name.endsWith('.pdf'));
                 const pngs = files.filter(f => f.name.endsWith('.png'));
-                audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
+                const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
 
-                if (pdfs.length === 0) {
-                    gridContainer.innerHTML = '<p>No PDF files found in this repository.</p>';
-                    return;
-                }
-                pdfs.sort((a, b) => a.name.localeCompare(b.name));
+                const displayItems = [];
+                const processedPngs = new Set();
+
+                // Process PDFs
                 pdfs.forEach(pdf => {
                     const match = pdf.name.match(/_(\d+)\.pdf$/);
                     const customScale = match ? parseInt(match[1]) / 100 : 3.0;
-
                     const pdfNameBase = pdf.name.replace('.pdf', '');
                     const png = pngs.find(p => p.name.startsWith(pdfNameBase) && p.name.endsWith('.png'));
                     const audio = audioFiles.find(a => a.name.startsWith(pdfNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
+                    
+                    if (png) processedPngs.add(png.name);
 
-                    const thumbnailSrc = png ? png.download_url : pdf.download_url;
+                    displayItems.push({
+                        name: pdf.name,
+                        type: 'pdf',
+                        url: pdf.download_url,
+                        scale: customScale,
+                        thumbnailUrl: png ? png.download_url : pdf.download_url,
+                        audioUrl: audio ? audio.download_url : null
+                    });
+                });
 
+                // Process standalone PNGs with audio
+                pngs.forEach(png => {
+                    if (processedPngs.has(png.name)) return;
+                    
+                    const pngNameBase = png.name.replace('.png', '');
+                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
+
+                    if (audio) {
+                        displayItems.push({
+                            name: png.name,
+                            type: 'image',
+                            url: png.download_url,
+                            scale: 2.0, // Default zoom for images
+                            thumbnailUrl: png.download_url,
+                            audioUrl: audio.download_url
+                        });
+                    }
+                });
+
+                if (displayItems.length === 0) {
+                    gridContainer.innerHTML = '<p>No PDF or audio-enabled PNG files found in this repository.</p>';
+                    return;
+                }
+                displayItems.sort((a, b) => a.name.localeCompare(b.name));
+                displayItems.forEach(item => {
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
-                    gridItem.onclick = () => openPdf(pdf.download_url, customScale, audio ? audio.download_url : null);
-                    gridItem.innerHTML = `<img src="${thumbnailSrc}" alt="${pdfNameBase}" class="thumbnail">`;
+                    gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
+                    gridItem.innerHTML = `<img src="${item.thumbnailUrl}" alt="${item.name}" class="thumbnail">`;
                     gridContainer.appendChild(gridItem);
                 });
             })
@@ -351,29 +388,44 @@
             });
     }
 
-    async function renderPdf(pdf, container, scale) {
-        container.innerHTML = '';
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
-            const canvas = document.createElement('canvas');
-            canvas.className = 'pdf-canvas';
-            const canvasContext = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            container.appendChild(canvas);
-            const renderContext = { canvasContext, viewport };
-            await page.render(renderContext).promise;
+    async function renderPdf(pdfUrl, container, scale) {
+        container.innerHTML = '<p style="color:white; text-align:center;">Loading PDF...</p>';
+        try {
+            const loadingTask = pdfjsLib.getDocument(pdfUrl);
+            currentDocument = await loadingTask.promise;
+            container.innerHTML = '';
+            for (let pageNum = 1; pageNum <= currentDocument.numPages; pageNum++) {
+                const page = await currentDocument.getPage(pageNum);
+                const viewport = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-canvas';
+                const canvasContext = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                container.appendChild(canvas);
+                const renderContext = { canvasContext, viewport };
+                await page.render(renderContext).promise;
+            }
+        } catch (error) {
+            console.error('Error loading PDF:', error);
+            container.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
         }
     }
 
-    async function openPdf(pdfUrl, initialScale, audioUrl) {
+    function renderImage(imageUrl, container, scale) {
+        container.innerHTML = '<p style="color:white; text-align:center;">Loading Image...</p>';
+        container.innerHTML = '';
+        const image = document.createElement('img');
+        image.className = 'image-viewer';
+        image.src = imageUrl;
+        image.style.transform = `scale(${scale})`;
+        image.style.transformOrigin = 'center top';
+        container.appendChild(image);
+    }
+    
+    async function openViewer(fileUrl, initialScale, audioUrl, fileType) {
         modal.classList.add('show');
         topControls.classList.add('top-controls-visible');
-        pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
-        pdfViewerContainer.style.overflow = 'auto';
-        pdfViewerContainer.style.backgroundColor = 'black';
-        pdfViewerContainer.style.paddingTop = '60px';
         
         if (audioUrl) {
             audioPlayerContainer.classList.add('visible');
@@ -385,40 +437,45 @@
             audioPlayer.currentTime = 0;
         }
 
-        try {
-            const loadingTask = pdfjsLib.getDocument(pdfUrl);
-            currentPdf = await loadingTask.promise;
-            scale = initialScale;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            await renderPdf(currentPdf, pdfViewerContainer, scale);
-        } catch (error) {
-            console.error('Error loading PDF:', error);
-            pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
+        scale = initialScale;
+        zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+        currentViewerType = fileType;
+
+        if (fileType === 'pdf') {
+            await renderPdf(fileUrl, pdfViewerContainer, scale);
+        } else if (fileType === 'image') {
+            renderImage(fileUrl, pdfViewerContainer, scale);
         }
     }
 
     function closePdfModal() {
         modal.classList.remove('show');
         pdfViewerContainer.innerHTML = '';
-        currentPdf = null;
+        currentDocument = null;
+        currentViewerType = null;
         audioPlayer.pause();
         audioPlayer.currentTime = 0;
     }
 
-    const zoomControls = document.querySelector('.zoom-controls');
     zoomInBtn.onclick = () => {
-        if (currentPdf) {
-            scale += 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+        scale += 0.25;
+        zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+        if (currentViewerType === 'pdf') {
+            renderPdf(currentDocument, pdfViewerContainer, scale);
+        } else if (currentViewerType === 'image') {
+            document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
         }
     };
 
     zoomOutBtn.onclick = () => {
-        if (currentPdf && scale > 0.25) {
+        if (scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            renderPdf(currentPdf, pdfViewerContainer, scale);
+            if (currentViewerType === 'pdf') {
+                renderPdf(currentDocument, pdfViewerContainer, scale);
+            } else if (currentViewerType === 'image') {
+                document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
+            }
         }
     };
 
@@ -440,7 +497,6 @@
         contactLink.classList.toggle('contact-link-hidden');
     };
 
-    // Audio Player Logic
     playPauseBtn.addEventListener('click', () => {
         if (audioPlayer.paused) {
             audioPlayer.play();
