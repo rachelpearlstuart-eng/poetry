@@ -346,7 +346,7 @@
                 pngs.forEach(png => {
                     const pngNameBase = png.name.replace('.png', '');
                     const pdf = pdfs.find(p => p.name.startsWith(pngNameBase) && p.name.endsWith('.pdf'));
-                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(a.name)));
+                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
 
                     if (pdf) {
                         const match = pdf.name.match(/_(\d+)\.pdf$/);
