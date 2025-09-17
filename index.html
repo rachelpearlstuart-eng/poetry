@@ -33,25 +33,48 @@
             position: relative;
             padding-top: 100%;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             background-size: cover;
             background-position: center;
+            background-repeat: no-repeat;
         }
         .grid-item:hover {
             transform: translateY(-5px);
             box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.2);
         }
-        .thumbnail-img {
-            display: none;
+        .grid-item-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: rgba(255, 255, 255, 0.85);
+            transition: background-color 0.2s;
         }
-        .grid-item-text {
+        .grid-item:hover .grid-item-overlay {
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        .grid-item-title {
             font-family: monospace;
             text-transform: uppercase;
             font-size: 1.2em;
             color: #333;
-            text-align: center;
             word-break: break-word;
+        }
+        .grid-item-date {
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
         }
         .footer-bar {
             position: fixed;
@@ -213,7 +236,7 @@
             font-size: 20px;
             width: 30px;
             height: 30px;
-            border-radius: 50%;
+            border-radius: 0;
             cursor: pointer;
             transition: background-color 0.2s;
         }
@@ -348,6 +371,26 @@
         'seven': 7.0,
         'eight': 8.0,
     };
+
+    function parseFileName(fileName) {
+        const parts = fileName.split(/_|–|\./).filter(Boolean).map(p => p.trim());
+        const dateMatch = fileName.match(/\((\d{4}),\s+([A-Z]+)\)/i);
+        let title = parts[1];
+        let date = '';
+
+        if (dateMatch) {
+            date = `${dateMatch[2].toUpperCase()} ${dateMatch[1]}`;
+            // Remove the year/month part from the title
+            title = fileName.replace(`(${dateMatch[1]}, ${dateMatch[2]})`, '').trim();
+            // Re-parse the title without the date
+            const titleParts = title.split(/_|–|\./).filter(Boolean).map(p => p.trim());
+            title = titleParts[1];
+        } else {
+            title = parts.slice(1, -1).join(' ').replace(/_|\./g, ' ').trim();
+        }
+        
+        return { title, date };
+    }
     
     async function fetchAndRenderGrid() {
         let files = null;
@@ -420,8 +463,10 @@
                     }
                 }
                 
+                const { title, date } = parseFileName(png.name);
                 displayItems.push({
-                    name: pngNameBase,
+                    name: title,
+                    date: date,
                     type: 'pdf',
                     url: pdf.download_url,
                     scale: customScale,
@@ -429,8 +474,10 @@
                     audioUrl: audio ? audio.download_url : null
                 });
             } else if (audio) {
+                 const { title, date } = parseFileName(png.name);
                  displayItems.push({
-                    name: pngNameBase,
+                    name: title,
+                    date: date,
                     type: 'image',
                     url: png.download_url,
                     scale: 2.0,
@@ -450,10 +497,25 @@
             const gridItem = document.createElement('div');
             gridItem.className = 'grid-item';
             gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
-
-            // Use background image instead of an <img> tag
             gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
+            console.log(`Rendering thumbnail for: ${item.name}`);
+            console.log(`Thumbnail URL: ${item.thumbnailUrl}`);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'grid-item-overlay';
             
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'grid-item-title';
+            titleSpan.textContent = item.name;
+            
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'grid-item-date';
+            dateSpan.textContent = item.date;
+
+            overlay.appendChild(titleSpan);
+            overlay.appendChild(dateSpan);
+            gridItem.appendChild(overlay);
+
             gridContainer.appendChild(gridItem);
         });
     }
@@ -495,7 +557,6 @@
             audioPlayerContainer.classList.add('visible');
             audioPlayer.src = audioUrl;
             
-            // Wait for metadata to load before showing time
             audioPlayer.addEventListener('loadedmetadata', () => {
                 timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
             }, { once: true });
@@ -505,7 +566,6 @@
             audioPlayerContainer.classList.remove('visible');
             audioPlayer.pause();
             audioPlayer.currentTime = 0;
-            // Clear the src to prevent browser from trying to load it again
             audioPlayer.src = '';
         }
 
@@ -589,7 +649,6 @@
                     await audioPlayer.play();
                 } else {
                     console.warn('Audio player not ready to play yet.');
-                    // Optionally, you can try to play it once it's ready
                     audioPlayer.addEventListener('canplaythrough', () => {
                         audioPlayer.play();
                     }, { once: true });
