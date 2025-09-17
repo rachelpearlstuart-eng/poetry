@@ -12,15 +12,11 @@
             margin: 0;
             padding: 20px 20px 60px 20px;
             background-color: white;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
         }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 20px;
-            flex-grow: 1;
         }
         .grid-item {
             background-color: #fff;
@@ -31,25 +27,27 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
-            /* New Flexbox method for square aspect ratio */
+            padding-top: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
+            background-size: cover;
+            background-position: center;
         }
-        .grid-item:before {
-            content: '';
-            display: block;
-            padding-top: 100%;
+        .grid-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.2);
         }
-        .grid-item img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
+        .thumbnail-img {
+            display: none;
+        }
+        .grid-item-text {
+            font-family: monospace;
+            text-transform: uppercase;
+            font-size: 1.2em;
+            color: #333;
+            text-align: center;
+            word-break: break-word;
         }
         .footer-bar {
             position: fixed;
@@ -205,18 +203,18 @@
             gap: 10px;
         }
         .play-pause-btn {
-            background: none !important;
-            border: 1px solid white !important;
-            color: white !important;
-            font-size: 20px !important;
-            width: 30px !important;
-            height: 30px !important;
-            border-radius: 0 !important;
-            cursor: pointer !important;
-            transition: background-color 0.2s !important;
+            background: none;
+            border: 1px solid white;
+            color: white;
+            font-size: 20px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
         .play-pause-btn:hover {
-            background-color: rgba(255, 255, 255, 0.2) !important;
+            background-color: rgba(255, 255, 255, 0.2);
         }
         .progress-bar {
             flex-grow: 1;
@@ -236,17 +234,6 @@
             font-family: monospace;
             font-size: 12px;
             color: #ccc;
-        }
-
-        /* Loading Indicator */
-        .loading-text {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 50vh;
-            font-family: monospace;
-            font-size: 1.5em;
-            color: #333;
         }
 
         /* Custom Scrollbar */
@@ -271,8 +258,7 @@
 <body>
 
 <div id="grid-container" class="grid-container">
-    <div id="loading-indicator" class="loading-text">Loading...</div>
-</div>
+    </div>
 
 <div class="footer-bar">
     <a href="mailto:rachelpearlstuart@gmail.com" class="contact-link contact-link-hidden">CONTACT</a>
@@ -312,7 +298,6 @@
     const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
     
     const gridContainer = document.getElementById('grid-container');
-    const loadingIndicator = document.getElementById('loading-indicator');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
     const topControls = document.getElementById('topControls');
@@ -338,6 +323,7 @@
 
     const supportedAudioExts = ['.mp3', '.mp4', '.flac', '.ogg'];
     
+    // Mapping for custom scale words to numeric values
     const scaleMap = {
         'four': 4.0,
         'five': 5.0,
@@ -346,136 +332,88 @@
         'eight': 8.0,
     };
     
-    async function fetchAndRenderGrid() {
-        let files = null;
-        const cacheKey = 'github-files-cache';
-        const cacheExpiration = 3600000; // 1 hour in milliseconds
-
-        try {
-            const cachedData = localStorage.getItem(cacheKey);
-            if (cachedData) {
-                const { files: cachedFiles, timestamp } = JSON.parse(cachedData);
-                if (Date.now() - timestamp < cacheExpiration) {
-                    files = cachedFiles;
-                    console.log('Loading from cache.');
-                }
-            }
-        } catch (e) {
-            console.error('Failed to access localStorage:', e);
-        }
-
-        if (!files) {
-            console.log('Loading from GitHub API...');
-            try {
-                const response = await fetch(apiUrl);
+    function fetchAndRenderGrid() {
+        fetch(apiUrl)
+            .then(response => {
                 if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
-                files = await response.json();
-                try {
-                    localStorage.setItem(cacheKey, JSON.stringify({ files, timestamp: Date.now() }));
-                    console.log('Cached new data.');
-                } catch (e) {
-                    console.error('Failed to save to localStorage:', e);
-                }
-            } catch (error) {
-                console.error(error);
-                loadingIndicator.textContent = `Failed to load files from GitHub. Error: ${error.message}`;
-                return;
-            }
-        }
-        
-        loadingIndicator.style.display = 'none';
+                return response.json();
+            })
+            .then(files => {
+                const pdfs = files.filter(f => f.name.endsWith('.pdf'));
+                const pngs = files.filter(f => f.name.endsWith('.png'));
+                const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
 
-        const pdfs = files.filter(f => f.name.endsWith('.pdf'));
-        const pngs = files.filter(f => f.name.endsWith('.png'));
-        const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
-
-        const displayItems = [];
-        
-        const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
-        const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
-        const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
-
-        pngs.forEach(png => {
-            const pngNameBase = png.name.replace('.png', '');
-            const pdf = pdfsMap.get(pngNameBase);
-            let audio = audioMap.get(pngNameBase);
-
-            if (!audio) {
-                const numMatch = pngNameBase.match(/^\d+/);
-                if (numMatch) {
-                    const numPrefix = numMatch[0];
-                    audio = audioFiles.find(a => a.name.startsWith(numPrefix));
-                }
-            }
-
-            if (pdf) {
-                let customScale = 4.0;
+                const displayItems = [];
                 
-                const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
-                if (numericMatch) {
-                    customScale = parseInt(numericMatch[1]) / 100;
-                } else {
-                    const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
-                    if (wordMatch && scaleMap[wordMatch[1]]) {
-                        customScale = scaleMap[wordMatch[1]];
+                // Create maps for quick lookup by base name
+                const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
+                const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
+                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a])); // Get base name without extension
+
+                // Iterate over PNGs to find matching files
+                pngs.forEach(png => {
+                    const pngNameBase = png.name.replace('.png', '');
+                    const pdf = pdfsMap.get(pngNameBase);
+                    const audio = audioMap.get(pngNameBase);
+
+                    if (pdf) {
+                        let customScale = 4.0;
+                        
+                        // First, try to find a numeric scale (e.g., _250)
+                        const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
+                        if (numericMatch) {
+                            customScale = parseInt(numericMatch[1]) / 100;
+                        } else {
+                            // If no numeric scale, try to find a word-based scale
+                            const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
+                            if (wordMatch && scaleMap[wordMatch[1]]) {
+                                customScale = scaleMap[wordMatch[1]];
+                            }
+                        }
+                        
+                        displayItems.push({
+                            name: pngNameBase,
+                            type: 'pdf',
+                            url: pdf.download_url,
+                            scale: customScale,
+                            thumbnailUrl: png.download_url,
+                            audioUrl: audio ? audio.download_url : null
+                        });
+                    } else if (audio) {
+                         displayItems.push({
+                            name: pngNameBase,
+                            type: 'image',
+                            url: png.download_url,
+                            scale: 2.0,
+                            thumbnailUrl: png.download_url,
+                            audioUrl: audio.download_url
+                        });
                     }
+                });
+
+                if (displayItems.length === 0) {
+                    gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
+                    return;
                 }
-                
-                displayItems.push({
-                    name: png.name,
-                    type: 'pdf',
-                    url: pdf.download_url,
-                    scale: customScale,
-                    thumbnailUrl: png.download_url,
-                    audioUrl: audio ? audio.download_url : null
+                displayItems.sort((a, b) => a.name.localeCompare(b.name));
+                displayItems.forEach(item => {
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'grid-item';
+                    gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
+
+                    // Use background image instead of an <img> tag
+                    gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
+                    
+                    gridContainer.appendChild(gridItem);
                 });
-            } else if (audio) {
-                 displayItems.push({
-                    name: png.name,
-                    type: 'image',
-                    url: png.download_url,
-                    scale: 2.0,
-                    thumbnailUrl: png.download_url,
-                    audioUrl: audio.download_url
-                });
-            }
-        });
-
-        displayItems.sort((a, b) => {
-            const numA = parseInt(a.name.match(/^\d+/));
-            const numB = parseInt(b.name.match(/^\d+/));
-
-            if (!isNaN(numA) && !isNaN(numB)) {
-                return numA - numB;
-            }
-            if (!isNaN(numA)) return -1;
-            if (!isNaN(numB)) return 1;
-            
-            return a.name.localeCompare(b.name);
-        });
-
-        if (displayItems.length === 0) {
-            gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
-            return;
-        }
-
-        gridContainer.innerHTML = ''; // Clear loading indicator
-        displayItems.forEach(item => {
-            const gridItem = document.createElement('div');
-            gridItem.className = 'grid-item';
-            gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
-            
-            const thumbnailImg = document.createElement('img');
-            thumbnailImg.src = item.thumbnailUrl;
-            thumbnailImg.alt = `Thumbnail for ${item.name}`;
-            
-            gridItem.appendChild(thumbnailImg);
-
-            gridContainer.appendChild(gridItem);
-        });
+            })
+            .catch(error => {
+                console.error(error);
+                gridContainer.innerHTML = `<p>Failed to load files from GitHub. Error: ${error.message}</p>`;
+            });
     }
 
-    async function renderPdf(pdf, container, scale, restoreScrollTop = 0) {
+    async function renderPdf(pdf, container, scale) {
         container.innerHTML = '';
         console.log(`Rendering PDF at a scale of: ${scale}`);
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -483,13 +421,13 @@
             const viewport = page.getViewport({ scale });
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
+            const canvasContext = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             container.appendChild(canvas);
             const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
         }
-        container.scrollTop = restoreScrollTop;
     }
 
     function renderImage(imageUrl, container, scale) {
@@ -507,20 +445,13 @@
         topControls.classList.add('top-controls-visible');
         
         if (audioUrl) {
-            console.log(`Audio URL: ${audioUrl}`);
             audioPlayerContainer.classList.add('visible');
             audioPlayer.src = audioUrl;
-            
-            audioPlayer.addEventListener('loadedmetadata', () => {
-                timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
-            }, { once: true });
-
             audioPlayer.load();
         } else {
             audioPlayerContainer.classList.remove('visible');
             audioPlayer.pause();
             audioPlayer.currentTime = 0;
-            audioPlayer.src = '';
         }
 
         scale = initialScale;
@@ -551,27 +482,26 @@
         currentViewerType = null;
         audioPlayer.pause();
         audioPlayer.currentTime = 0;
-        audioPlayer.src = '';
     }
 
     zoomInBtn.onclick = () => {
-        const currentScrollTop = pdfViewerContainer.scrollTop;
+        console.log(`Zoom In clicked. Current scale: ${scale}`);
         scale += 0.25;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
         if (currentDocument && currentViewerType === 'pdf') {
-            renderPdf(currentDocument, pdfViewerContainer, scale, currentScrollTop);
+            renderPdf(currentDocument, pdfViewerContainer, scale);
         } else if (currentDocument && currentViewerType === 'image') {
             document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
         }
     };
 
     zoomOutBtn.onclick = () => {
-        const currentScrollTop = pdfViewerContainer.scrollTop;
+        console.log(`Zoom Out clicked. Current scale: ${scale}`);
         if (scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             if (currentDocument && currentViewerType === 'pdf') {
-                renderPdf(currentDocument, pdfViewerContainer, scale, currentScrollTop);
+                renderPdf(currentDocument, pdfViewerContainer, scale);
             } else if (currentDocument && currentViewerType === 'image') {
                 document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
             }
@@ -596,27 +526,11 @@
         contactLink.classList.toggle('contact-link-hidden');
     };
 
-    playPauseBtn.addEventListener('click', async () => {
-        try {
-            if (audioPlayer.paused) {
-                if (audioPlayer.readyState >= 3) {
-                    await audioPlayer.play();
-                    console.log("Audio started playing.");
-                } else {
-                    console.warn('Audio player not ready to play yet. Attempting to force load.');
-                    audioPlayer.load();
-                    audioPlayer.addEventListener('canplaythrough', () => {
-                        audioPlayer.play();
-                        console.log("Audio ready and started playing.");
-                    }, { once: true });
-                }
-            } else {
-                audioPlayer.pause();
-                console.log("Audio paused.");
-            }
-        } catch (error) {
-            console.error('Audio playback failed:', error);
-            alert(`Audio playback failed. This is likely due to an invalid file or a server error. Please check your browser's console for more details.`);
+    playPauseBtn.addEventListener('click', () => {
+        if (audioPlayer.paused) {
+            audioPlayer.play();
+        } else {
+            audioPlayer.pause();
         }
     });
 
@@ -631,18 +545,17 @@
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
-        if (isNaN(minutes) || isNaN(secs)) {
-            return '?:??';
-        }
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
     audioPlayer.addEventListener('timeupdate', () => {
-        if (!isNaN(audioPlayer.duration)) {
-            const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-            progressBarFill.style.width = `${progress}%`;
-            timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
-        }
+        const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+        progressBarFill.style.width = `${progress}%`;
+        timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
+    });
+
+    audioPlayer.addEventListener('loadedmetadata', () => {
+        timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
     });
 
     progressBar.addEventListener('click', (e) => {
