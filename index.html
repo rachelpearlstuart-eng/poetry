@@ -31,14 +31,16 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
-            padding-top: 100%;
+            /* New Flexbox method for square aspect ratio */
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
-        .grid-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.2);
+        .grid-item:before {
+            content: '';
+            display: block;
+            padding-top: 100%;
         }
         .grid-item img {
             position: absolute;
@@ -396,7 +398,15 @@
         pngs.forEach(png => {
             const pngNameBase = png.name.replace('.png', '');
             const pdf = pdfsMap.get(pngNameBase);
-            const audio = audioMap.get(pngNameBase);
+            let audio = audioMap.get(pngNameBase);
+
+            if (!audio) {
+                const numMatch = pngNameBase.match(/^\d+/);
+                if (numMatch) {
+                    const numPrefix = numMatch[0];
+                    audio = audioFiles.find(a => a.name.startsWith(numPrefix));
+                }
+            }
 
             if (pdf) {
                 let customScale = 4.0;
@@ -431,6 +441,19 @@
             }
         });
 
+        displayItems.sort((a, b) => {
+            const numA = parseInt(a.name.match(/^\d+/));
+            const numB = parseInt(b.name.match(/^\d+/));
+
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+            }
+            if (!isNaN(numA)) return -1;
+            if (!isNaN(numB)) return 1;
+            
+            return a.name.localeCompare(b.name);
+        });
+
         if (displayItems.length === 0) {
             gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
             return;
@@ -460,7 +483,6 @@
             const viewport = page.getViewport({ scale });
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
-            const canvasContext = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             container.appendChild(canvas);
