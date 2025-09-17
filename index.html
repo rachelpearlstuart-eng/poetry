@@ -466,7 +466,12 @@
         
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: qualityScale });
+            
+            // Get the viewport with the desired display size
+            const viewport = page.getViewport({ scale: initialZoomPercent / 100 });
+
+            // Get the transform for rendering at a higher quality
+            const transform = page.getViewport({ scale: qualityScale }).transform;
             
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
@@ -475,13 +480,9 @@
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             
-            const renderContext = { canvasContext, viewport };
+            const renderContext = { canvasContext, viewport, transform };
             
             await page.render(renderContext).promise;
-            
-            // Apply the visual zoom
-            const visualScale = initialZoomPercent / 100;
-            canvas.style.transform = `scale(${visualScale})`;
             
             container.appendChild(canvas);
         }
@@ -526,10 +527,10 @@
 
     function updateZoom(delta) {
         currentZoomScale = Math.max(25, currentZoomScale + delta);
-        const pageCanvases = pdfViewerContainer.querySelectorAll('.pdf-canvas');
-        pageCanvases.forEach(canvas => {
-            canvas.style.transform = `scale(${currentZoomScale / 100})`;
-        });
+        if (currentViewerType === 'pdf') {
+            pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Updating zoom...</p>';
+            renderPdf(currentDocument, pdfViewerContainer, currentQualityScale, currentZoomScale);
+        }
         zoomLevelSpan.textContent = `${currentZoomScale}%`;
     }
 
