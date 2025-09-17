@@ -258,7 +258,7 @@
 <body>
 
 <div id="grid-container" class="grid-container">
-    </div>
+</div>
 
 <div class="footer-bar">
     <a href="mailto:rachelpearlstuart@gmail.com" class="contact-link contact-link-hidden">CONTACT</a>
@@ -289,14 +289,14 @@
         </div>
     </div>
     <div id="pdf-viewer-container" class="modal-content">
-        </div>
+    </div>
 </div>
 
 <script>
     const repoOwner = 'rachelpearlstuart-eng';
     const repoName = 'poetry';
     const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
-    
+
     const gridContainer = document.getElementById('grid-container');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
@@ -314,7 +314,7 @@
     const progressBarFill = document.getElementById('progress-bar-fill');
     const timeDisplay = document.getElementById('time-display');
     
-    let scale = 4.0;
+    let scale = 3.0;
     let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
@@ -323,8 +323,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     const supportedAudioExts = ['.mp3', '.mp4', '.flac', '.ogg'];
-    
-    // Mapping for custom scale words to numeric values
+
     const scaleMap = {
         'four': 4.0,
         'five': 5.0,
@@ -332,6 +331,38 @@
         'seven': 7.0,
         'eight': 8.0,
     };
+
+    function resetAudioPlayer() {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+        audioPlayer.src = '';
+        playPauseBtn.textContent = '▶';
+        progressBarFill.style.width = '0%';
+        timeDisplay.textContent = '0:00 / 0:00';
+        audioPlayerContainer.classList.remove('visible');
+    }
+
+    function setupAudioPlayer(audioUrl) {
+        resetAudioPlayer();
+        if (audioUrl) {
+            console.log(`Setting audio source to: ${audioUrl}`);
+            audioPlayer.src = audioUrl;
+            audioPlayerContainer.classList.add('visible');
+
+            audioPlayer.addEventListener('loadedmetadata', () => {
+                console.log('Audio metadata loaded. Duration:', audioPlayer.duration);
+                timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
+            }, { once: true });
+
+            audioPlayer.addEventListener('error', (e) => {
+                console.error('Audio loading error:', e);
+            });
+            
+            audioPlayer.load();
+        } else {
+            console.log('No audio URL provided for this item.');
+        }
+    }
     
     function fetchAndRenderGrid() {
         fetch(apiUrl)
@@ -346,25 +377,36 @@
 
                 const displayItems = [];
                 
-                // Create maps for quick lookup by base name
                 const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
                 const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
-                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a])); // Get base name without extension
+                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
 
-                // Iterate over PNGs to find matching files
                 pngs.forEach(png => {
                     const pngNameBase = png.name.replace('.png', '');
                     const pdf = pdfsMap.get(pngNameBase);
-                    const audio = audioMap.get(pngNameBase);
+                    let audio = audioMap.get(pngNameBase);
+
+                    if (!audio) {
+                        const numMatch = pngNameBase.match(/^\d+/);
+                        if (numMatch) {
+                            const numPrefix = numMatch[0];
+                            audio = audioFiles.find(a => a.name.startsWith(numPrefix));
+                        }
+                    }
 
                     if (pdf) {
                         let customScale = 4.0;
-                        const match = pdf.name.match(/_([a-z]+)\.pdf$/);
-                        if (match && scaleMap[match[1]]) {
-                            customScale = scaleMap[match[1]];
+                        const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
+                        if (numericMatch) {
+                            customScale = parseInt(numericMatch[1]) / 100;
+                        } else {
+                            const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
+                            if (wordMatch && scaleMap[wordMatch[1]]) {
+                                customScale = scaleMap[wordMatch[1]];
+                            }
                         }
                         displayItems.push({
-                            name: pngNameBase,
+                            name: png.name,
                             type: 'pdf',
                             url: pdf.download_url,
                             scale: customScale,
@@ -373,7 +415,7 @@
                         });
                     } else if (audio) {
                          displayItems.push({
-                            name: pngNameBase,
+                            name: png.name,
                             type: 'image',
                             url: png.download_url,
                             scale: 2.0,
@@ -383,17 +425,28 @@
                     }
                 });
 
+                displayItems.sort((a, b) => {
+                    const numA = parseInt(a.name.match(/^\d+/));
+                    const numB = parseInt(b.name.match(/^\d+/));
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        return numA - numB;
+                    }
+                    if (!isNaN(numA)) return -1;
+                    if (!isNaN(numB)) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
                 if (displayItems.length === 0) {
                     gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
                     return;
                 }
-                displayItems.sort((a, b) => a.name.localeCompare(b.name));
+                
+                gridContainer.innerHTML = '';
                 displayItems.forEach(item => {
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
                     gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
-
-                    // Use background image instead of an <img> tag
+                    
                     gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
                     
                     gridContainer.appendChild(gridItem);
@@ -407,7 +460,6 @@
 
     async function renderPdf(pdf, container, scale) {
         container.innerHTML = '';
-        console.log(`Rendering PDF at a scale of: ${scale}`);
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const viewport = page.getViewport({ scale });
@@ -436,15 +488,7 @@
         modal.classList.add('show');
         topControls.classList.add('top-controls-visible');
         
-        if (audioUrl) {
-            audioPlayerContainer.classList.add('visible');
-            audioPlayer.src = audioUrl;
-            audioPlayer.load();
-        } else {
-            audioPlayerContainer.classList.remove('visible');
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-        }
+        setupAudioPlayer(audioUrl);
 
         scale = initialScale;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -472,8 +516,7 @@
         pdfViewerContainer.innerHTML = '';
         currentDocument = null;
         currentViewerType = null;
-        audioPlayer.pause();
-        audioPlayer.currentTime = 0;
+        resetAudioPlayer();
     }
 
     zoomInBtn.onclick = () => {
@@ -516,11 +559,27 @@
         contactLink.classList.toggle('contact-link-hidden');
     };
 
-    playPauseBtn.addEventListener('click', () => {
-        if (audioPlayer.paused) {
-            audioPlayer.play();
-        } else {
-            audioPlayer.pause();
+    playPauseBtn.addEventListener('click', async () => {
+        console.log('Play/Pause button clicked.');
+        if (!audioPlayer.src) {
+            console.error('Audio source is not set. Cannot play.');
+            return;
+        }
+
+        console.log('Current audio readyState:', audioPlayer.readyState);
+        
+        try {
+            if (audioPlayer.paused) {
+                console.log("Attempting to play audio...");
+                await audioPlayer.play();
+                console.log("Audio started playing successfully.");
+            } else {
+                console.log("Attempting to pause audio...");
+                audioPlayer.pause();
+                console.log("Audio paused.");
+            }
+        } catch (error) {
+            console.error('Playback failed. Error:', error);
         }
     });
 
@@ -535,24 +594,27 @@
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
+        if (isNaN(minutes) || isNaN(secs)) {
+            return '?:??';
+        }
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
     audioPlayer.addEventListener('timeupdate', () => {
-        const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-        progressBarFill.style.width = `${progress}%`;
-        timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
-    });
-
-    audioPlayer.addEventListener('loadedmetadata', () => {
-        timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
+        if (!isNaN(audioPlayer.duration)) {
+            const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+            progressBarFill.style.width = `${progress}%`;
+            timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
+        }
     });
 
     progressBar.addEventListener('click', (e) => {
-        const rect = progressBar.getBoundingClientRect();
-        const clickPosition = e.clientX - rect.left;
-        const newTime = (clickPosition / rect.width) * audioPlayer.duration;
-        audioPlayer.currentTime = newTime;
+        if (!isNaN(audioPlayer.duration)) {
+            const rect = progressBar.getBoundingClientRect();
+            const clickPosition = e.clientX - rect.left;
+            const newTime = (clickPosition / rect.width) * audioPlayer.duration;
+            audioPlayer.currentTime = newTime;
+        }
     });
 
     document.addEventListener('DOMContentLoaded', fetchAndRenderGrid);
