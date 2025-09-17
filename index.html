@@ -486,13 +486,19 @@
         const pageCanvases = container.querySelectorAll('.pdf-canvas');
         
         let currentPageIndex = 0;
-        let offsetInPage = 0;
+        let offsetInPageRatio = 0;
 
         for (let i = 0; i < pageCanvases.length; i++) {
             const canvas = pageCanvases[i];
-            if (canvas.offsetTop <= oldScrollTop + 1) { // Add 1px buffer
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // The top of the canvas relative to the top of the container
+            const canvasTopInContainer = canvasRect.top - containerRect.top + container.scrollTop;
+            
+            if (canvasTopInContainer <= oldScrollTop + 1) { // Add 1px buffer
                 currentPageIndex = i;
-                offsetInPage = oldScrollTop - canvas.offsetTop;
+                offsetInPageRatio = (oldScrollTop - canvasTopInContainer) / canvas.offsetHeight;
             } else {
                 break;
             }
@@ -511,7 +517,7 @@
         }
 
         const newCurrentPageCanvas = pageCanvases[currentPageIndex];
-        const newOffsetInPage = offsetInPage * (newScale / oldScale);
+        const newOffsetInPage = newCurrentPageCanvas.offsetHeight * offsetInPageRatio;
         
         container.scrollTop = newCurrentPageCanvas.offsetTop + newOffsetInPage;
         isRendering = false;
