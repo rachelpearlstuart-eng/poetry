@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poetry Collection</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
         /* Base Styles */
         body {
@@ -27,6 +28,10 @@
             transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
             padding-top: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
         }
         .grid-item:hover {
             transform: translateY(-5px);
@@ -41,6 +46,14 @@
             object-fit: cover;
             display: block;
             border-radius: 8px;
+        }
+        .grid-item-text {
+            font-family: monospace;
+            text-transform: uppercase;
+            font-size: 1.2em;
+            color: #333;
+            text-align: center;
+            word-break: break-word;
         }
         .footer-bar {
             position: fixed;
@@ -329,41 +342,29 @@
                 const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
 
                 const displayItems = [];
-                const processedPngs = new Set();
-
-                // Process PDFs
-                pdfs.forEach(pdf => {
-                    const match = pdf.name.match(/_(\d+)\.pdf$/);
-                    const customScale = match ? parseInt(match[1]) / 100 : 3.0;
-                    const pdfNameBase = pdf.name.replace('.pdf', '');
-                    const png = pngs.find(p => p.name.startsWith(pdfNameBase) && p.name.endsWith('.png'));
-                    const audio = audioFiles.find(a => a.name.startsWith(pdfNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
-                    
-                    if (png) processedPngs.add(png.name);
-
-                    displayItems.push({
-                        name: pdf.name,
-                        type: 'pdf',
-                        url: pdf.download_url,
-                        scale: customScale,
-                        thumbnailUrl: png ? png.download_url : pdf.download_url,
-                        audioUrl: audio ? audio.download_url : null
-                    });
-                });
-
-                // Process standalone PNGs with audio
+                
                 pngs.forEach(png => {
-                    if (processedPngs.has(png.name)) return;
-                    
                     const pngNameBase = png.name.replace('.png', '');
-                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
+                    const pdf = pdfs.find(p => p.name.startsWith(pngNameBase) && p.name.endsWith('.pdf'));
+                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(a.name)));
 
-                    if (audio) {
+                    if (pdf) {
+                        const match = pdf.name.match(/_(\d+)\.pdf$/);
+                        const customScale = match ? parseInt(match[1]) / 100 : 3.0;
                         displayItems.push({
-                            name: png.name,
+                            name: pngNameBase,
+                            type: 'pdf',
+                            url: pdf.download_url,
+                            scale: customScale,
+                            thumbnailUrl: png.download_url,
+                            audioUrl: audio ? audio.download_url : null
+                        });
+                    } else if (audio) {
+                         displayItems.push({
+                            name: pngNameBase,
                             type: 'image',
                             url: png.download_url,
-                            scale: 2.0, // Default zoom for images
+                            scale: 2.0,
                             thumbnailUrl: png.download_url,
                             audioUrl: audio.download_url
                         });
@@ -371,7 +372,7 @@
                 });
 
                 if (displayItems.length === 0) {
-                    gridContainer.innerHTML = '<p>No PDF or audio-enabled PNG files found in this repository.</p>';
+                    gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
                     return;
                 }
                 displayItems.sort((a, b) => a.name.localeCompare(b.name));
@@ -379,7 +380,9 @@
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
                     gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
+                    
                     gridItem.innerHTML = `<img src="${item.thumbnailUrl}" alt="${item.name}" class="thumbnail">`;
+                    
                     gridContainer.appendChild(gridItem);
                 });
             })
