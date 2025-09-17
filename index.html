@@ -335,10 +335,10 @@
     // Parses a filename to find zoom and quality preferences
     function parseFilename(filename) {
         const parts = filename.split('_');
-        let zoom = null;
-        let quality = null;
+        let zoom = DEFAULT_ZOOM_PERCENT;
+        let quality = DEFAULT_QUALITY_SCALE;
 
-        // Find the last number for zoom
+        // Find the last numeric string for the zoom preference
         for (let i = parts.length - 1; i >= 0; i--) {
             const numMatch = parts[i].match(/^(\d+(?:\.\d+)?)$/);
             if (numMatch) {
@@ -347,18 +347,15 @@
             }
         }
 
-        // Find the last spelled-out number for quality
+        // Find the last spelled-out number for the quality preference
         for (let i = parts.length - 1; i >= 0; i--) {
             if (qualityScaleMap.hasOwnProperty(parts[i])) {
                 quality = qualityScaleMap[parts[i]];
                 break;
             }
         }
-
-        return {
-            zoom: zoom || DEFAULT_ZOOM_PERCENT,
-            quality: quality || DEFAULT_QUALITY_SCALE
-        };
+        
+        return { zoom, quality };
     }
 
     function resetAudioPlayer() {
