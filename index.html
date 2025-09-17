@@ -519,23 +519,31 @@
         resetAudioPlayer();
     }
 
-    zoomInBtn.onclick = () => {
-        scale += 0.25;
-        zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+    zoomInBtn.onclick = async () => {
         if (currentDocument && currentViewerType === 'pdf') {
-            renderPdf(currentDocument, pdfViewerContainer, scale);
+            const currentScrollTop = pdfViewerContainer.scrollTop;
+            scale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+            await renderPdf(currentDocument, pdfViewerContainer, scale);
+            pdfViewerContainer.scrollTop = currentScrollTop;
         } else if (currentDocument && currentViewerType === 'image') {
+            scale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
         }
     };
 
-    zoomOutBtn.onclick = () => {
+    zoomOutBtn.onclick = async () => {
         if (scale > 0.25) {
-            scale -= 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             if (currentDocument && currentViewerType === 'pdf') {
-                renderPdf(currentDocument, pdfViewerContainer, scale);
+                const currentScrollTop = pdfViewerContainer.scrollTop;
+                scale -= 0.25;
+                zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
+                await renderPdf(currentDocument, pdfViewerContainer, scale);
+                pdfViewerContainer.scrollTop = currentScrollTop;
             } else if (currentDocument && currentViewerType === 'image') {
+                scale -= 0.25;
+                zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
                 document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
             }
         }
