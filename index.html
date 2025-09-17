@@ -413,7 +413,7 @@
             });
     }
 
-    async function renderPdf(pdf, container, scale) {
+    async function renderPdf(pdf, container, scale, restoreScrollTop = 0) {
         container.innerHTML = '';
         console.log(`Rendering PDF at a scale of: ${scale}`);
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -428,6 +428,8 @@
             const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
         }
+        // Restore the scroll position after re-rendering
+        container.scrollTop = restoreScrollTop;
     }
 
     function renderImage(imageUrl, container, scale) {
@@ -486,10 +488,11 @@
 
     zoomInBtn.onclick = () => {
         console.log(`Zoom In clicked. Current scale: ${scale}`);
+        const currentScrollTop = pdfViewerContainer.scrollTop;
         scale += 0.25;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
         if (currentDocument && currentViewerType === 'pdf') {
-            renderPdf(currentDocument, pdfViewerContainer, scale);
+            renderPdf(currentDocument, pdfViewerContainer, scale, currentScrollTop);
         } else if (currentDocument && currentViewerType === 'image') {
             document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
         }
@@ -497,11 +500,12 @@
 
     zoomOutBtn.onclick = () => {
         console.log(`Zoom Out clicked. Current scale: ${scale}`);
+        const currentScrollTop = pdfViewerContainer.scrollTop;
         if (scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             if (currentDocument && currentViewerType === 'pdf') {
-                renderPdf(currentDocument, pdfViewerContainer, scale);
+                renderPdf(currentDocument, pdfViewerContainer, scale, currentScrollTop);
             } else if (currentDocument && currentViewerType === 'image') {
                 document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
             }
@@ -570,3 +574,5 @@
 
 </body>
 </html>
+A video on how to dynamically load content on a website as a user scrolls down the page is available at [this JavaScript scroll tutorial](https://www.youtube.com/watch?v=eziREnZPml4).
+http://googleusercontent.com/youtube_content/0
