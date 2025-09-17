@@ -258,7 +258,7 @@
 <body>
 
 <div id="grid-container" class="grid-container">
-    </div>
+</div>
 
 <div class="footer-bar">
     <a href="mailto:rachelpearlstuart@gmail.com" class="contact-link contact-link-hidden">CONTACT</a>
@@ -289,14 +289,14 @@
         </div>
     </div>
     <div id="pdf-viewer-container" class="modal-content">
-        </div>
+    </div>
 </div>
 
 <script>
     const repoOwner = 'rachelpearlstuart-eng';
     const repoName = 'poetry';
     const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
-    
+
     const gridContainer = document.getElementById('grid-container');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
@@ -349,11 +349,20 @@
             audioPlayer.src = audioUrl;
             audioPlayerContainer.classList.add('visible');
 
+            audioPlayer.addEventListener('loadeddata', () => {
+                console.log('Audio data loaded. Ready to play.');
+                // Try to play immediately if the browser allows it
+                audioPlayer.play().catch(error => {
+                    // This error is expected if the browser blocks autoplay
+                    console.log('Autoplay was blocked. Audio is ready to play on user click.');
+                });
+            }, { once: true });
+            
             audioPlayer.addEventListener('loadedmetadata', () => {
                 console.log('Audio metadata loaded.');
                 timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
-            }, { once: true });
-            
+            });
+
             audioPlayer.addEventListener('error', (e) => {
                 console.error('Audio loading error:', e);
             });
@@ -363,7 +372,7 @@
             console.log('No audio URL provided for this item.');
         }
     }
-
+    
     function fetchAndRenderGrid() {
         fetch(apiUrl)
             .then(response => {
@@ -581,10 +590,12 @@
 
     audioPlayer.addEventListener('play', () => {
         playPauseBtn.textContent = '⏸';
+        console.log("Playback started.");
     });
 
     audioPlayer.addEventListener('pause', () => {
         playPauseBtn.textContent = '▶';
+        console.log("Playback paused.");
     });
     
     function formatTime(seconds) {
