@@ -308,9 +308,10 @@
     const timeDisplay = document.getElementById('time-display');
     
     let scale = 3.0;
-    let currentDocument = null;
+    let currentDocument = null; // Stores either the PDF document object or a reference to the image URL
     let controlsTimeout;
     let currentViewerType = null;
+    let currentDocumentUrl = null;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -388,32 +389,23 @@
             });
     }
 
-    async function renderPdf(pdfUrl, container, scale) {
-        container.innerHTML = '<p style="color:white; text-align:center;">Loading PDF...</p>';
-        try {
-            const loadingTask = pdfjsLib.getDocument(pdfUrl);
-            currentDocument = await loadingTask.promise;
-            container.innerHTML = '';
-            for (let pageNum = 1; pageNum <= currentDocument.numPages; pageNum++) {
-                const page = await currentDocument.getPage(pageNum);
-                const viewport = page.getViewport({ scale });
-                const canvas = document.createElement('canvas');
-                canvas.className = 'pdf-canvas';
-                const canvasContext = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                container.appendChild(canvas);
-                const renderContext = { canvasContext, viewport };
-                await page.render(renderContext).promise;
-            }
-        } catch (error) {
-            console.error('Error loading PDF:', error);
-            container.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
+    async function renderPdf(pdf, container, scale) {
+        container.innerHTML = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.className = 'pdf-canvas';
+            const canvasContext = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            container.appendChild(canvas);
+            const renderContext = { canvasContext, viewport };
+            await page.render(renderContext).promise;
         }
     }
 
     function renderImage(imageUrl, container, scale) {
-        container.innerHTML = '<p style="color:white; text-align:center;">Loading Image...</p>';
         container.innerHTML = '';
         const image = document.createElement('img');
         image.className = 'image-viewer';
@@ -441,10 +433,20 @@
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
         currentViewerType = fileType;
 
+        pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
+
         if (fileType === 'pdf') {
-            await renderPdf(fileUrl, pdfViewerContainer, scale);
+            try {
+                const loadingTask = pdfjsLib.getDocument(fileUrl);
+                currentDocument = await loadingTask.promise;
+                await renderPdf(currentDocument, pdfViewerContainer, scale);
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
+            }
         } else if (fileType === 'image') {
-            renderImage(fileUrl, pdfViewerContainer, scale);
+            currentDocument = fileUrl; // Store the URL for images
+            renderImage(currentDocument, pdfViewerContainer, scale);
         }
     }
 
