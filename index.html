@@ -114,7 +114,7 @@
             align-items: center;
             justify-content: flex-start;
         }
-        /* New styling for the page container */
+        /* New styling for the page container to fix spacing */
         .page-container {
             margin: 0 auto 12px auto;
             height: auto;
@@ -200,8 +200,9 @@
             flex-direction: column;
             gap: 5px;
         }
-        .audio-player-container.visible {
-            display: flex;
+        /* Force the audio player to be visible with high specificity */
+        .audio-player-container.show-flex {
+            display: flex !important;
         }
         .audio-controls {
             display: flex;
@@ -368,7 +369,7 @@
         playPauseBtn.textContent = '▶';
         progressBarFill.style.width = '0%';
         timeDisplay.textContent = '0:00 / 0:00';
-        audioPlayerContainer.style.display = 'none'; // Directly set display to none
+        audioPlayerContainer.classList.remove('show-flex');
     }
 
     function setupAudioPlayer(audioUrl) {
@@ -376,7 +377,7 @@
         console.log(`Setting audio source: ${audioUrl}`); // Debugging line
         if (audioUrl) {
             audioPlayer.src = audioUrl;
-            audioPlayerContainer.style.display = 'flex'; // Directly set display to flex
+            audioPlayerContainer.classList.add('show-flex');
 
             audioPlayer.addEventListener('loadedmetadata', () => {
                 console.log('Audio metadata loaded. Duration:', audioPlayer.duration);
