@@ -377,11 +377,19 @@
                 }
                 displayItems.sort((a, b) => a.name.localeCompare(b.name));
                 displayItems.forEach(item => {
+                    console.log(`Rendering thumbnail for: ${item.name}`);
+                    console.log(`Thumbnail URL: ${item.thumbnailUrl}`);
+
                     const gridItem = document.createElement('div');
                     gridItem.className = 'grid-item';
                     gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
                     
-                    gridItem.innerHTML = `<img src="${item.thumbnailUrl}" alt="${item.name}" class="thumbnail">`;
+                    const thumbnailImage = document.createElement('img');
+                    thumbnailImage.src = item.thumbnailUrl;
+                    thumbnailImage.alt = item.name;
+                    thumbnailImage.className = 'thumbnail';
+
+                    gridItem.appendChild(thumbnailImage);
                     
                     gridContainer.appendChild(gridItem);
                 });
