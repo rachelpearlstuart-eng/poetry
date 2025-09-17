@@ -404,7 +404,6 @@
             let audio = audioMap.get(pngNameBase);
 
             if (!audio) {
-                // New logic: search for audio by number prefix
                 const numMatch = pngNameBase.match(/^\d+/);
                 if (numMatch) {
                     const numPrefix = numMatch[0];
@@ -445,7 +444,6 @@
             }
         });
 
-        // New sorting logic: sort by number prefix first, then by filename
         displayItems.sort((a, b) => {
             const numA = parseInt(a.name.match(/^\d+/));
             const numB = parseInt(b.name.match(/^\d+/));
@@ -464,7 +462,7 @@
             return;
         }
 
-        gridContainer.innerHTML = ''; // Clear loading indicator
+        gridContainer.innerHTML = '';
         displayItems.forEach(item => {
             const gridItem = document.createElement('div');
             gridItem.className = 'grid-item';
@@ -504,26 +502,44 @@
         container.appendChild(image);
     }
     
+    function resetAudioPlayer() {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+        audioPlayer.src = '';
+        playPauseBtn.textContent = '▶';
+        progressBarFill.style.width = '0%';
+        timeDisplay.textContent = '0:00 / 0:00';
+        audioPlayerContainer.classList.remove('visible');
+    }
+
+    function setupAudioPlayer(audioUrl) {
+        resetAudioPlayer(); // Reset before setting up
+        if (audioUrl) {
+            console.log(`Setting audio source to: ${audioUrl}`);
+            audioPlayer.src = audioUrl;
+            audioPlayerContainer.classList.add('visible');
+
+            audioPlayer.addEventListener('loadedmetadata', () => {
+                console.log('Audio metadata loaded.');
+                timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
+            }, { once: true });
+            
+            audioPlayer.addEventListener('error', (e) => {
+                console.error('Audio loading error:', e);
+                alert('An error occurred while loading the audio file.');
+            });
+
+            audioPlayer.load();
+        } else {
+            console.log('No audio URL provided.');
+        }
+    }
+
     async function openViewer(fileUrl, initialScale, audioUrl, fileType) {
         modal.classList.add('show');
         topControls.classList.add('top-controls-visible');
         
-        if (audioUrl) {
-            console.log(`Audio URL: ${audioUrl}`);
-            audioPlayerContainer.classList.add('visible');
-            audioPlayer.src = audioUrl;
-            
-            audioPlayer.addEventListener('loadedmetadata', () => {
-                timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
-            }, { once: true });
-
-            audioPlayer.load();
-        } else {
-            audioPlayerContainer.classList.remove('visible');
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-            audioPlayer.src = '';
-        }
+        setupAudioPlayer(audioUrl);
 
         scale = initialScale;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -551,9 +567,7 @@
         pdfViewerContainer.innerHTML = '';
         currentDocument = null;
         currentViewerType = null;
-        audioPlayer.pause();
-        audioPlayer.currentTime = 0;
-        audioPlayer.src = '';
+        resetAudioPlayer();
     }
 
     zoomInBtn.onclick = () => {
@@ -599,43 +613,42 @@
     };
 
     playPauseBtn.addEventListener('click', async () => {
+        console.log('Play/Pause button clicked.');
+        if (!audioPlayer.src) {
+            console.error('Audio source is not set.');
+            return;
+        }
+
         try {
             if (audioPlayer.paused) {
-                if (audioPlayer.readyState >= 3) {
-                    await audioPlayer.play();
-                    console.log("Audio started playing.");
-                } else {
-                    console.warn('Audio player not ready to play yet. Attempting to force load.');
-                    audioPlayer.load();
-                    audioPlayer.addEventListener('canplaythrough', () => {
-                        audioPlayer.play();
-                        console.log("Audio ready and started playing.");
-                    }, { once: true });
-                }
+                console.log('Attempting to play audio...');
+                await audioPlayer.play();
             } else {
+                console.log('Pausing audio...');
                 audioPlayer.pause();
-                console.log("Audio paused.");
             }
         } catch (error) {
             console.error('Audio playback failed:', error);
-            alert(`Audio playback failed. This is likely due to an invalid file or a server error. Please check your browser's console for more details.`);
+            alert('Audio playback failed. Please try again or check the console for more details.');
         }
     });
 
     audioPlayer.addEventListener('play', () => {
         playPauseBtn.textContent = '⏸';
+        console.log('Audio is playing.');
     });
 
     audioPlayer.addEventListener('pause', () => {
         playPauseBtn.textContent = '▶';
+        console.log('Audio is paused.');
     });
     
     function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        if (isNaN(minutes) || isNaN(secs)) {
+        if (isNaN(seconds) || seconds < 0) {
             return '?:??';
         }
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
@@ -648,10 +661,12 @@
     });
 
     progressBar.addEventListener('click', (e) => {
-        const rect = progressBar.getBoundingClientRect();
-        const clickPosition = e.clientX - rect.left;
-        const newTime = (clickPosition / rect.width) * audioPlayer.duration;
-        audioPlayer.currentTime = newTime;
+        if (!isNaN(audioPlayer.duration)) {
+            const rect = progressBar.getBoundingClientRect();
+            const clickPosition = e.clientX - rect.left;
+            const newTime = (clickPosition / rect.width) * audioPlayer.duration;
+            audioPlayer.currentTime = newTime;
+        }
     });
 
     document.addEventListener('DOMContentLoaded', fetchAndRenderGrid);
