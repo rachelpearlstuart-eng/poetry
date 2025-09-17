@@ -514,13 +514,11 @@
         const newCurrentPageCanvas = pageCanvases[currentPageIndex];
         const newOffsetInPage = offsetInPage * (newScale / oldScale);
         
-        // Step 1: Scroll the current page to the top of the container
-        newCurrentPageCanvas.scrollIntoView({ behavior: 'instant', block: 'start' });
-
-        // Step 2: Scroll down by the precise, calculated offset
-        container.scrollBy(0, newOffsetInPage);
-        
-        isRendering = false;
+        // Use requestAnimationFrame to ensure the layout is stable before scrolling
+        requestAnimationFrame(() => {
+            container.scrollTop = newCurrentPageCanvas.offsetTop + newOffsetInPage;
+            isRendering = false;
+        });
     }
 
     function renderImage(imageUrl, container, scale) {
