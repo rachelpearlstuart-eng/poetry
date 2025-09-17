@@ -383,31 +383,35 @@
         let title = '';
         let date = '';
         
-        // Match the year and month pattern
-        const dateMatch = fileName.match(/\((\d{4}),\s+([A-Z]+)\)/i);
+        // Remove file extension
+        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '').trim();
+
+        // Match date and remove it
+        const dateMatch = nameWithoutExt.match(/\((\d{4}),\s*([a-zA-Z]+)\)/i);
         if (dateMatch) {
             date = `${dateMatch[2].toUpperCase()} ${dateMatch[1]}`;
-            // Get the title part before the date
-            title = fileName.substring(0, dateMatch.index).trim();
-            // Clean up common separators
-            title = title.replace(/_|-|\./g, ' ').replace(/\s+/g, ' ').trim();
-            // Remove the leading number and space, if present
-            const match = title.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
-            if (match) {
-                title = match[1];
-            }
+            // Remove the date from the string
+            title = nameWithoutExt.substring(0, dateMatch.index).trim();
         } else {
-            // No date found, assume the whole name is the title
-            const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '').trim();
-            const match = nameWithoutExt.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
-            if (match) {
-                title = match[1].replace(/_|\./g, ' ').replace(/\s+/g, ' ').trim();
-            } else {
-                title = nameWithoutExt.replace(/_|\./g, ' ').replace(/\s+/g, ' ').trim();
-            }
+            title = nameWithoutExt;
         }
-        
-        return { title, date };
+
+        // Remove leading numbers and hyphens/underscores
+        const numberMatch = title.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
+        if (numberMatch) {
+            title = numberMatch[1];
+        }
+
+        // Remove any trailing scale (e.g., _150)
+        const scaleMatch = title.match(/(_\d+|_five|_six|_seven|_eight)$/i);
+        if (scaleMatch) {
+            title = title.substring(0, scaleMatch.index).trim();
+        }
+
+        // Clean up remaining separators like underscores and periods
+        title = title.replace(/_|–|\./g, ' ').replace(/\s+/g, ' ').trim();
+
+        return { title: title.toUpperCase(), date };
     }
     
     async function fetchAndRenderGrid() {
