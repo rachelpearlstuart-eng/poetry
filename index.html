@@ -540,13 +540,20 @@
     playPauseBtn.addEventListener('click', async () => {
         try {
             if (audioPlayer.paused) {
-                await audioPlayer.play();
+                if (audioPlayer.readyState >= 3) {
+                    await audioPlayer.play();
+                } else {
+                    console.warn('Audio player not ready to play yet.');
+                    // Optionally, you can try to play it once it's ready
+                    audioPlayer.addEventListener('canplaythrough', () => {
+                        audioPlayer.play();
+                    }, { once: true });
+                }
             } else {
                 audioPlayer.pause();
             }
         } catch (error) {
             console.error('Audio playback failed:', error);
-            // You can also display a message to the user here
             alert('Audio playback failed. Please check the console for more information.');
         }
     });
