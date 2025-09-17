@@ -30,7 +30,7 @@
         }
         .grid-item:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.2);
         }
         .thumbnail {
             position: absolute;
@@ -308,7 +308,7 @@
     const timeDisplay = document.getElementById('time-display');
     
     let scale = 3.0;
-    let currentDocument = null; // Stores either the PDF document object or a reference to the image URL
+    let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
     let currentDocumentUrl = null;
@@ -445,7 +445,7 @@
                 pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
             }
         } else if (fileType === 'image') {
-            currentDocument = fileUrl; // Store the URL for images
+            currentDocument = fileUrl;
             renderImage(currentDocument, pdfViewerContainer, scale);
         }
     }
@@ -462,9 +462,9 @@
     zoomInBtn.onclick = () => {
         scale += 0.25;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-        if (currentViewerType === 'pdf') {
+        if (currentDocument && currentViewerType === 'pdf') {
             renderPdf(currentDocument, pdfViewerContainer, scale);
-        } else if (currentViewerType === 'image') {
+        } else if (currentDocument && currentViewerType === 'image') {
             document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
         }
     };
@@ -473,9 +473,9 @@
         if (scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            if (currentViewerType === 'pdf') {
+            if (currentDocument && currentViewerType === 'pdf') {
                 renderPdf(currentDocument, pdfViewerContainer, scale);
-            } else if (currentViewerType === 'image') {
+            } else if (currentDocument && currentViewerType === 'image') {
                 document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
             }
         }
