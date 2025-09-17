@@ -348,7 +348,7 @@
                 // Create maps for quick lookup by base name
                 const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
                 const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
-                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a])); // Get base name without extension
+                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
 
                 // Iterate over PNGs to find matching files
                 pngs.forEach(png => {
@@ -449,11 +449,19 @@
         if (audioUrl) {
             audioPlayerContainer.classList.add('visible');
             audioPlayer.src = audioUrl;
+            
+            // Wait for metadata to load before showing time
+            audioPlayer.addEventListener('loadedmetadata', () => {
+                timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
+            }, { once: true }); // Use { once: true } to remove the listener after it fires
+
             audioPlayer.load();
         } else {
             audioPlayerContainer.classList.remove('visible');
             audioPlayer.pause();
             audioPlayer.currentTime = 0;
+            // Clear the src to prevent browser from trying to load it again
+            audioPlayer.src = '';
         }
 
         scale = initialScale;
@@ -484,10 +492,10 @@
         currentViewerType = null;
         audioPlayer.pause();
         audioPlayer.currentTime = 0;
+        audioPlayer.src = '';
     }
 
     zoomInBtn.onclick = () => {
-        console.log(`Zoom In clicked. Current scale: ${scale}`);
         const currentScrollTop = pdfViewerContainer.scrollTop;
         scale += 0.25;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -499,7 +507,6 @@
     };
 
     zoomOutBtn.onclick = () => {
-        console.log(`Zoom Out clicked. Current scale: ${scale}`);
         const currentScrollTop = pdfViewerContainer.scrollTop;
         if (scale > 0.25) {
             scale -= 0.25;
@@ -549,17 +556,18 @@
     function formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
+        if (isNaN(minutes) || isNaN(secs)) {
+            return '?:??';
+        }
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
     audioPlayer.addEventListener('timeupdate', () => {
-        const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-        progressBarFill.style.width = `${progress}%`;
-        timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
-    });
-
-    audioPlayer.addEventListener('loadedmetadata', () => {
-        timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
+        if (!isNaN(audioPlayer.duration)) {
+            const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+            progressBarFill.style.width = `${progress}%`;
+            timeDisplay.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
+        }
     });
 
     progressBar.addEventListener('click', (e) => {
@@ -574,5 +582,3 @@
 
 </body>
 </html>
-A video on how to dynamically load content on a website as a user scrolls down the page is available at [this JavaScript scroll tutorial](https://www.youtube.com/watch?v=eziREnZPml4).
-http://googleusercontent.com/youtube_content/0
