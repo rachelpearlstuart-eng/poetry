@@ -316,7 +316,7 @@
     const timeDisplay = document.getElementById('time-display');
     
     let currentQualityScale = 4.0;
-    let currentZoomScale = 1.0;
+    let currentZoomPercent = 100;
     let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
@@ -467,11 +467,8 @@
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             
-            // Get the viewport with the desired display size
-            const viewport = page.getViewport({ scale: initialZoomPercent / 100 });
-
-            // Get the transform for rendering at a higher quality
-            const transform = page.getViewport({ scale: qualityScale }).transform;
+            // Render at the high quality scale
+            const viewport = page.getViewport({ scale: qualityScale });
             
             const canvas = document.createElement('canvas');
             canvas.className = 'pdf-canvas';
@@ -480,9 +477,13 @@
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             
-            const renderContext = { canvasContext, viewport, transform };
+            const renderContext = { canvasContext, viewport };
             
             await page.render(renderContext).promise;
+            
+            // Use CSS transform to visually scale the high-quality canvas
+            const visualScale = (initialZoomPercent / 100) / qualityScale;
+            canvas.style.transform = `scale(${visualScale})`;
             
             container.appendChild(canvas);
         }
@@ -496,8 +497,8 @@
         setupAudioPlayer(audioUrl);
 
         currentQualityScale = initialQuality;
-        currentZoomScale = initialZoom;
-        zoomLevelSpan.textContent = `${currentZoomScale}%`;
+        currentZoomPercent = initialZoom;
+        zoomLevelSpan.textContent = `${currentZoomPercent}%`;
         currentViewerType = fileType;
 
         pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Loading...</p>';
@@ -506,14 +507,14 @@
             try {
                 const loadingTask = pdfjsLib.getDocument(fileUrl);
                 currentDocument = await loadingTask.promise;
-                await renderPdf(currentDocument, pdfViewerContainer, currentQualityScale, currentZoomScale);
+                await renderPdf(currentDocument, pdfViewerContainer, currentQualityScale, currentZoomPercent);
             } catch (error) {
                 console.error('Error loading PDF:', error);
                 pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
             }
         } else if (fileType === 'image') {
             currentDocument = fileUrl;
-            renderImage(currentDocument, pdfViewerContainer, currentZoomScale / 100);
+            renderImage(currentDocument, pdfViewerContainer, currentZoomPercent / 100);
         }
     }
 
@@ -526,12 +527,15 @@
     }
 
     function updateZoom(delta) {
-        currentZoomScale = Math.max(25, currentZoomScale + delta);
+        currentZoomPercent = Math.max(25, currentZoomPercent + delta);
         if (currentViewerType === 'pdf') {
-            pdfViewerContainer.innerHTML = '<p style="color:white; text-align:center;">Updating zoom...</p>';
-            renderPdf(currentDocument, pdfViewerContainer, currentQualityScale, currentZoomScale);
+            const visualScale = (currentZoomPercent / 100) / currentQualityScale;
+            const pageCanvases = pdfViewerContainer.querySelectorAll('.pdf-canvas');
+            pageCanvases.forEach(canvas => {
+                canvas.style.transform = `scale(${visualScale})`;
+            });
         }
-        zoomLevelSpan.textContent = `${currentZoomScale}%`;
+        zoomLevelSpan.textContent = `${currentZoomPercent}%`;
     }
 
     zoomInBtn.onclick = () => updateZoom(25);
