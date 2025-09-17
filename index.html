@@ -453,7 +453,7 @@
             // Wait for metadata to load before showing time
             audioPlayer.addEventListener('loadedmetadata', () => {
                 timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
-            }, { once: true }); // Use { once: true } to remove the listener after it fires
+            }, { once: true });
 
             audioPlayer.load();
         } else {
@@ -537,11 +537,17 @@
         contactLink.classList.toggle('contact-link-hidden');
     };
 
-    playPauseBtn.addEventListener('click', () => {
-        if (audioPlayer.paused) {
-            audioPlayer.play();
-        } else {
-            audioPlayer.pause();
+    playPauseBtn.addEventListener('click', async () => {
+        try {
+            if (audioPlayer.paused) {
+                await audioPlayer.play();
+            } else {
+                audioPlayer.pause();
+            }
+        } catch (error) {
+            console.error('Audio playback failed:', error);
+            // You can also display a message to the user here
+            alert('Audio playback failed. Please check the console for more information.');
         }
     });
 
