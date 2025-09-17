@@ -116,7 +116,7 @@
         }
         .pdf-canvas, .image-viewer {
             display: block;
-            margin: 0 auto 28px auto;
+            margin: 0 auto 8px auto; /* Adjusted margin */
             height: auto;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             max-width: 100%;
@@ -467,7 +467,6 @@
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             
-            // Render at the high quality scale
             const viewport = page.getViewport({ scale: qualityScale });
             
             const canvas = document.createElement('canvas');
@@ -481,7 +480,6 @@
             
             await page.render(renderContext).promise;
             
-            // Use CSS transform to visually scale the high-quality canvas
             const visualScale = (initialZoomPercent / 100) / qualityScale;
             canvas.style.transform = `scale(${visualScale})`;
             
