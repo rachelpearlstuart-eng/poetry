@@ -336,7 +336,6 @@
 
     const supportedAudioExts = ['.mp3', '.mp4', '.flac', '.ogg'];
     
-    // Mapping for custom scale words to numeric values
     const scaleMap = {
         'four': 4.0,
         'five': 5.0,
@@ -390,12 +389,18 @@
 
         const displayItems = [];
         
-        // Create maps for quick lookup by base name
         const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
         const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
         const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
 
-        // Iterate over PNGs to find matching files
+        // --- DEBUGGING OUTPUT (START) ---
+        console.group("Debugging File Loading");
+        console.log("Found PNGs:", pngs.map(p => p.name));
+        console.log("Found PDFs:", pdfs.map(p => p.name));
+        console.log("Found Audio:", audioFiles.map(a => a.name));
+        console.groupEnd();
+        // --- DEBUGGING OUTPUT (END) ---
+
         pngs.forEach(png => {
             const pngNameBase = png.name.replace('.png', '');
             const pdf = pdfsMap.get(pngNameBase);
@@ -453,6 +458,29 @@
 
             gridContainer.appendChild(gridItem);
         });
+
+        // --- DEBUGGING OUTPUT (START) ---
+        console.group("Debugging Rendered Items");
+        const renderedItems = document.querySelectorAll('.grid-item');
+        renderedItems.forEach((item, index) => {
+            const img = item.querySelector('img');
+            const computedStyle = window.getComputedStyle(img);
+            console.groupCollapsed(`Item ${index}: ${displayItems[index].name}`);
+            console.log("Thumbnail URL:", img.src);
+            console.log("CSS Computed Style:");
+            console.log(" - `object-fit`:", computedStyle.getPropertyValue('object-fit'));
+            console.log(" - `height`:", computedStyle.getPropertyValue('height'));
+            console.log(" - `width`:", computedStyle.getPropertyValue('width'));
+            console.groupEnd();
+        });
+        const playButton = document.getElementById('play-pause-btn');
+        if(playButton) {
+            console.groupCollapsed("Debugging Play Button");
+            console.log("Play button's computed `border-radius`:", window.getComputedStyle(playButton).getPropertyValue('border-radius'));
+            console.groupEnd();
+        }
+        console.groupEnd();
+        // --- DEBUGGING OUTPUT (END) ---
     }
 
     async function renderPdf(pdf, container, scale, restoreScrollTop = 0) {
@@ -470,7 +498,6 @@
             const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
         }
-        // Restore the scroll position after re-rendering
         container.scrollTop = restoreScrollTop;
     }
 
@@ -583,14 +610,17 @@
             if (audioPlayer.paused) {
                 if (audioPlayer.readyState >= 3) {
                     await audioPlayer.play();
+                    console.log("Audio started playing.");
                 } else {
                     console.warn('Audio player not ready to play yet.');
                     audioPlayer.addEventListener('canplaythrough', () => {
                         audioPlayer.play();
+                        console.log("Audio ready and started playing.");
                     }, { once: true });
                 }
             } else {
                 audioPlayer.pause();
+                console.log("Audio paused.");
             }
         } catch (error) {
             console.error('Audio playback failed:', error);
