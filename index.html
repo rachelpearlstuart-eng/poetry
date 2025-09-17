@@ -120,6 +120,7 @@
             height: auto;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             max-width: 100%;
+            transform-origin: center top;
         }
         
         /* Top Controls (x, Zoom) */
@@ -314,11 +315,11 @@
     const progressBarFill = document.getElementById('progress-bar-fill');
     const timeDisplay = document.getElementById('time-display');
     
-    let scale = 3.0;
+    let currentQualityScale = 4.0;
+    let currentZoomScale = 1.0;
     let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
-    let currentDocumentUrl = null;
     let isRendering = false;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
@@ -332,13 +333,11 @@
         'six': 6.0, 'seven': 7.0, 'eight': 8.0, 'nine': 9.0, 'ten': 10.0
     };
     
-    // Parses a filename to find zoom and quality preferences
     function parseFilename(filename) {
         const parts = filename.split('_');
         let zoom = DEFAULT_ZOOM_PERCENT;
         let quality = DEFAULT_QUALITY_SCALE;
 
-        // Find the last numeric string for the zoom preference
         for (let i = parts.length - 1; i >= 0; i--) {
             const numMatch = parts[i].match(/^(\d+(?:\.\d+)?)$/);
             if (numMatch) {
@@ -347,7 +346,6 @@
             }
         }
 
-        // Find the last spelled-out number for the quality preference
         for (let i = parts.length - 1; i >= 0; i--) {
             if (qualityScaleMap.hasOwnProperty(parts[i])) {
                 quality = qualityScaleMap[parts[i]];
@@ -461,7 +459,7 @@
             });
     }
 
-    async function renderPdf(pdf, container, qualityScale) {
+    async function renderPdf(pdf, container, qualityScale, initialZoomScale) {
         if (isRendering) return;
         isRendering = true;
         container.innerHTML = '';
@@ -476,6 +474,7 @@
             container.appendChild(canvas);
             const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
+            canvas.style.transform = `scale(${initialZoomScale})`;
         }
         isRendering = false;
     }
@@ -527,13 +526,12 @@
         });
     }
 
-    function renderImage(imageUrl, container, qualityScale) {
+    function renderImage(imageUrl, container, initialZoomScale) {
         container.innerHTML = '';
         const image = document.createElement('img');
         image.className = 'image-viewer';
         image.src = imageUrl;
-        image.style.transform = `scale(${qualityScale})`;
-        image.style.transformOrigin = 'center top';
+        image.style.transform = `scale(${initialZoomScale})`;
         container.appendChild(image);
     }
     
@@ -543,7 +541,8 @@
         
         setupAudioPlayer(audioUrl);
 
-        scale = initialQuality;
+        currentQualityScale = initialQuality;
+        currentZoomScale = initialZoom / 100;
         zoomLevelSpan.textContent = `${initialZoom}%`;
         currentViewerType = fileType;
 
@@ -553,14 +552,14 @@
             try {
                 const loadingTask = pdfjsLib.getDocument(fileUrl);
                 currentDocument = await loadingTask.promise;
-                await renderPdf(currentDocument, pdfViewerContainer, scale);
+                await renderPdf(currentDocument, pdfViewerContainer, currentQualityScale, currentZoomScale);
             } catch (error) {
                 console.error('Error loading PDF:', error);
                 pdfViewerContainer.innerHTML = `<p style="color:white; text-align:center;">Failed to load PDF.</p>`;
             }
         } else if (fileType === 'image') {
             currentDocument = fileUrl;
-            renderImage(currentDocument, pdfViewerContainer, scale);
+            renderImage(currentDocument, pdfViewerContainer, currentZoomScale);
         }
     }
 
@@ -574,28 +573,32 @@
 
     zoomInBtn.onclick = async () => {
         if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
-            const oldScale = scale;
-            scale += 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            await reRenderPdf(currentDocument, pdfViewerContainer, scale, oldScale);
+            currentZoomScale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(currentZoomScale * 100)}%`;
+            const pageCanvases = pdfViewerContainer.querySelectorAll('.pdf-canvas');
+            pageCanvases.forEach(canvas => {
+                canvas.style.transform = `scale(${currentZoomScale})`;
+            });
         } else if (currentDocument && currentViewerType === 'image') {
-            scale += 0.25;
-            zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
+            currentZoomScale += 0.25;
+            zoomLevelSpan.textContent = `${Math.round(currentZoomScale * 100)}%`;
+            document.querySelector('.image-viewer').style.transform = `scale(${currentZoomScale})`;
         }
     };
 
     zoomOutBtn.onclick = async () => {
-        if (scale > 0.25) {
+        if (currentZoomScale > 0.25) {
             if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
-                const oldScale = scale;
-                scale -= 0.25;
-                zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-                await reRenderPdf(currentDocument, pdfViewerContainer, scale, oldScale);
+                currentZoomScale -= 0.25;
+                zoomLevelSpan.textContent = `${Math.round(currentZoomScale * 100)}%`;
+                const pageCanvases = pdfViewerContainer.querySelectorAll('.pdf-canvas');
+                pageCanvases.forEach(canvas => {
+                    canvas.style.transform = `scale(${currentZoomScale})`;
+                });
             } else if (currentDocument && currentViewerType === 'image') {
-                scale -= 0.25;
-                zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-                document.querySelector('.image-viewer').style.transform = `scale(${scale})`;
+                currentZoomScale -= 0.25;
+                zoomLevelSpan.textContent = `${Math.round(currentZoomScale * 100)}%`;
+                document.querySelector('.image-viewer').style.transform = `scale(${currentZoomScale})`;
             }
         }
     };
