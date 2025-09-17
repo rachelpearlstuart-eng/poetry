@@ -200,9 +200,8 @@
             flex-direction: column;
             gap: 5px;
         }
-        /* Force the audio player to be visible with high specificity */
-        .audio-player-container.show-flex {
-            display: flex !important;
+        .audio-player-container.visible {
+            display: flex;
         }
         .audio-controls {
             display: flex;
@@ -352,10 +351,12 @@
             }
         }
 
-        for (let i = parts.length - 1; i >= 0; i--) {
-            if (qualityScaleMap.hasOwnProperty(parts[i])) {
-                quality = qualityScaleMap[i];
-                break;
+        const filenameWithoutExt = filename.split('.')[0];
+        const qualityMatch = filenameWithoutExt.match(/_([a-z]+)$/);
+        if (qualityMatch) {
+            const qualityWord = qualityMatch[1];
+            if (qualityScaleMap.hasOwnProperty(qualityWord)) {
+                quality = qualityScaleMap[qualityWord];
             }
         }
         
@@ -369,15 +370,15 @@
         playPauseBtn.textContent = '▶';
         progressBarFill.style.width = '0%';
         timeDisplay.textContent = '0:00 / 0:00';
-        audioPlayerContainer.classList.remove('show-flex');
+        audioPlayerContainer.classList.remove('visible');
     }
 
     function setupAudioPlayer(audioUrl) {
         resetAudioPlayer();
-        console.log(`Setting audio source: ${audioUrl}`); // Debugging line
+        console.log(`Setting audio source: ${audioUrl}`);
         if (audioUrl) {
             audioPlayer.src = audioUrl;
-            audioPlayerContainer.classList.add('show-flex');
+            audioPlayerContainer.classList.add('visible');
 
             audioPlayer.addEventListener('loadedmetadata', () => {
                 console.log('Audio metadata loaded. Duration:', audioPlayer.duration);
@@ -489,7 +490,6 @@
             const visualScale = (initialZoomPercent / 100) / qualityScale;
             canvas.style.transform = `scale(${visualScale})`;
             
-            // Create a new container for the page to ensure correct spacing
             const pageContainer = document.createElement('div');
             pageContainer.className = 'page-container';
             pageContainer.appendChild(canvas);
@@ -581,6 +581,7 @@
             }
         } catch (error) {
             console.error('Playback failed. Error:', error);
+            alert('Playback failed. This may be due to browser security settings or a cross-origin issue. Check the browser console for more details.');
         }
     });
 
