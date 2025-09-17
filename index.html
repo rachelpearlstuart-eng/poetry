@@ -319,6 +319,7 @@
     let controlsTimeout;
     let currentViewerType = null;
     let currentDocumentUrl = null;
+    let isRendering = false;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -459,6 +460,8 @@
     }
 
     async function renderPdf(pdf, container, scale) {
+        if (isRendering) return;
+        isRendering = true;
         container.innerHTML = '';
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
@@ -472,6 +475,27 @@
             const renderContext = { canvasContext, viewport };
             await page.render(renderContext).promise;
         }
+        isRendering = false;
+    }
+
+    async function reRenderPdf(pdf, container, newScale, currentScrollRatio) {
+        if (isRendering) return;
+        isRendering = true;
+        const pageCanvases = container.querySelectorAll('.pdf-canvas');
+        for (let i = 0; i < pdf.numPages; i++) {
+            const page = await pdf.getPage(i + 1);
+            const viewport = page.getViewport({ scale: newScale });
+            const canvas = pageCanvases[i];
+            
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            const renderContext = { canvasContext: canvas.getContext('2d'), viewport };
+            await page.render(renderContext).promise;
+        }
+        // Restore scroll position after all pages are re-rendered
+        pdfViewerContainer.scrollTop = pdfViewerContainer.scrollHeight * currentScrollRatio;
+        isRendering = false;
     }
 
     function renderImage(imageUrl, container, scale) {
@@ -520,12 +544,11 @@
     }
 
     zoomInBtn.onclick = async () => {
-        if (currentDocument && currentViewerType === 'pdf') {
+        if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
             const currentScrollRatio = pdfViewerContainer.scrollTop / pdfViewerContainer.scrollHeight;
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            await renderPdf(currentDocument, pdfViewerContainer, scale);
-            pdfViewerContainer.scrollTop = pdfViewerContainer.scrollHeight * currentScrollRatio;
+            await reRenderPdf(currentDocument, pdfViewerContainer, scale, currentScrollRatio);
         } else if (currentDocument && currentViewerType === 'image') {
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -535,12 +558,11 @@
 
     zoomOutBtn.onclick = async () => {
         if (scale > 0.25) {
-            if (currentDocument && currentViewerType === 'pdf') {
+            if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
                 const currentScrollRatio = pdfViewerContainer.scrollTop / pdfViewerContainer.scrollHeight;
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-                await renderPdf(currentDocument, pdfViewerContainer, scale);
-                pdfViewerContainer.scrollTop = pdfViewerContainer.scrollHeight * currentScrollRatio;
+                await reRenderPdf(currentDocument, pdfViewerContainer, scale, currentScrollRatio);
             } else if (currentDocument && currentViewerType === 'image') {
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
