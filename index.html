@@ -36,13 +36,19 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
         }
         .grid-item:hover {
             transform: translateY(-5px);
             box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .grid-item img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
         }
         .grid-item-overlay {
             position: absolute;
@@ -59,6 +65,7 @@
             box-sizing: border-box;
             background-color: rgba(255, 255, 255, 0.85);
             transition: background-color 0.2s;
+            z-index: 2;
         }
         .grid-item:hover .grid-item-overlay {
             background-color: rgba(255, 255, 255, 0.95);
@@ -373,20 +380,31 @@
     };
 
     function parseFileName(fileName) {
-        const parts = fileName.split(/_|–|\./).filter(Boolean).map(p => p.trim());
-        const dateMatch = fileName.match(/\((\d{4}),\s+([A-Z]+)\)/i);
-        let title = parts[1];
+        let title = '';
         let date = '';
-
+        
+        // Match the year and month pattern
+        const dateMatch = fileName.match(/\((\d{4}),\s+([A-Z]+)\)/i);
         if (dateMatch) {
             date = `${dateMatch[2].toUpperCase()} ${dateMatch[1]}`;
-            // Remove the year/month part from the title
-            title = fileName.replace(`(${dateMatch[1]}, ${dateMatch[2]})`, '').trim();
-            // Re-parse the title without the date
-            const titleParts = title.split(/_|–|\./).filter(Boolean).map(p => p.trim());
-            title = titleParts[1];
+            // Get the title part before the date
+            title = fileName.substring(0, dateMatch.index).trim();
+            // Clean up common separators
+            title = title.replace(/_|-|\./g, ' ').replace(/\s+/g, ' ').trim();
+            // Remove the leading number and space, if present
+            const match = title.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
+            if (match) {
+                title = match[1];
+            }
         } else {
-            title = parts.slice(1, -1).join(' ').replace(/_|\./g, ' ').trim();
+            // No date found, assume the whole name is the title
+            const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '').trim();
+            const match = nameWithoutExt.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
+            if (match) {
+                title = match[1].replace(/_|\./g, ' ').replace(/\s+/g, ' ').trim();
+            } else {
+                title = nameWithoutExt.replace(/_|\./g, ' ').replace(/\s+/g, ' ').trim();
+            }
         }
         
         return { title, date };
@@ -497,10 +515,11 @@
             const gridItem = document.createElement('div');
             gridItem.className = 'grid-item';
             gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
-            gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
-            console.log(`Rendering thumbnail for: ${item.name}`);
-            console.log(`Thumbnail URL: ${item.thumbnailUrl}`);
-
+            
+            const thumbnailImg = document.createElement('img');
+            thumbnailImg.src = item.thumbnailUrl;
+            thumbnailImg.alt = `Thumbnail for ${item.name}`;
+            
             const overlay = document.createElement('div');
             overlay.className = 'grid-item-overlay';
             
@@ -513,7 +532,11 @@
             dateSpan.textContent = item.date;
 
             overlay.appendChild(titleSpan);
-            overlay.appendChild(dateSpan);
+            if (item.date) {
+                overlay.appendChild(dateSpan);
+            }
+            
+            gridItem.appendChild(thumbnailImg);
             gridItem.appendChild(overlay);
 
             gridContainer.appendChild(gridItem);
