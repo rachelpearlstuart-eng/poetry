@@ -498,7 +498,8 @@
                 break;
             }
         }
-        
+
+        const renderPromises = [];
         for (let i = 0; i < pdf.numPages; i++) {
             const page = await pdf.getPage(i + 1);
             const viewport = page.getViewport({ scale: newScale });
@@ -508,16 +509,20 @@
             canvas.height = viewport.height;
             
             const renderContext = { canvasContext: canvas.getContext('2d'), viewport };
-            await page.render(renderContext).promise;
+            renderPromises.push(page.render(renderContext).promise);
         }
+
+        await Promise.all(renderPromises);
 
         const newCurrentPageCanvas = pageCanvases[currentPageIndex];
         const newOffsetInPage = offsetInPage * (newScale / oldScale);
         
-        // Use requestAnimationFrame to ensure the layout is stable before scrolling
-        requestAnimationFrame(() => {
-            container.scrollTop = newCurrentPageCanvas.offsetTop + newOffsetInPage;
-            isRendering = false;
+        // This two-step process ensures all layout is complete before we scroll
+        Promise.resolve().then(() => {
+            requestAnimationFrame(() => {
+                container.scrollTop = newCurrentPageCanvas.offsetTop + newOffsetInPage;
+                isRendering = false;
+            });
         });
     }
 
