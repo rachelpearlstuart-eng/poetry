@@ -33,7 +33,6 @@
             position: relative;
             padding-top: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
@@ -49,39 +48,6 @@
             height: 100%;
             object-fit: cover;
             z-index: 1;
-        }
-        .grid-item-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 10px;
-            box-sizing: border-box;
-            background-color: rgba(255, 255, 255, 0.85);
-            transition: background-color 0.2s;
-            z-index: 2;
-        }
-        .grid-item:hover .grid-item-overlay {
-            background-color: rgba(255, 255, 255, 0.95);
-        }
-        .grid-item-title {
-            font-family: monospace;
-            text-transform: uppercase;
-            font-size: 1.2em;
-            color: #333;
-            word-break: break-word;
-        }
-        .grid-item-date {
-            font-family: monospace;
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 5px;
         }
         .footer-bar {
             position: fixed;
@@ -378,41 +344,6 @@
         'seven': 7.0,
         'eight': 8.0,
     };
-
-    function parseFileName(fileName) {
-        let title = '';
-        let date = '';
-        
-        // Remove file extension
-        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '').trim();
-
-        // Match date and remove it
-        const dateMatch = nameWithoutExt.match(/\((\d{4}),\s*([a-zA-Z]+)\)/i);
-        if (dateMatch) {
-            date = `${dateMatch[2].toUpperCase()} ${dateMatch[1]}`;
-            // Remove the date from the string
-            title = nameWithoutExt.substring(0, dateMatch.index).trim();
-        } else {
-            title = nameWithoutExt;
-        }
-
-        // Remove leading numbers and hyphens/underscores
-        const numberMatch = title.match(/^\d{1,2}\s*[-–]?\s*(.*)/);
-        if (numberMatch) {
-            title = numberMatch[1];
-        }
-
-        // Remove any trailing scale (e.g., _150)
-        const scaleMatch = title.match(/(_\d+|_five|_six|_seven|_eight)$/i);
-        if (scaleMatch) {
-            title = title.substring(0, scaleMatch.index).trim();
-        }
-
-        // Clean up remaining separators like underscores and periods
-        title = title.replace(/_|–|\./g, ' ').replace(/\s+/g, ' ').trim();
-
-        return { title: title.toUpperCase(), date };
-    }
     
     async function fetchAndRenderGrid() {
         let files = null;
@@ -473,22 +404,18 @@
             if (pdf) {
                 let customScale = 4.0;
                 
-                // First, try to find a numeric scale (e.g., _250)
                 const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
                 if (numericMatch) {
                     customScale = parseInt(numericMatch[1]) / 100;
                 } else {
-                    // If no numeric scale, try to find a word-based scale
                     const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
                     if (wordMatch && scaleMap[wordMatch[1]]) {
                         customScale = scaleMap[wordMatch[1]];
                     }
                 }
                 
-                const { title, date } = parseFileName(png.name);
                 displayItems.push({
-                    name: title,
-                    date: date,
+                    name: png.name,
                     type: 'pdf',
                     url: pdf.download_url,
                     scale: customScale,
@@ -496,10 +423,8 @@
                     audioUrl: audio ? audio.download_url : null
                 });
             } else if (audio) {
-                 const { title, date } = parseFileName(png.name);
                  displayItems.push({
-                    name: title,
-                    date: date,
+                    name: png.name,
                     type: 'image',
                     url: png.download_url,
                     scale: 2.0,
@@ -513,7 +438,7 @@
             gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
             return;
         }
-        displayItems.sort((a, b) => a.name.localeCompare(b.name));
+
         gridContainer.innerHTML = ''; // Clear loading indicator
         displayItems.forEach(item => {
             const gridItem = document.createElement('div');
@@ -524,24 +449,7 @@
             thumbnailImg.src = item.thumbnailUrl;
             thumbnailImg.alt = `Thumbnail for ${item.name}`;
             
-            const overlay = document.createElement('div');
-            overlay.className = 'grid-item-overlay';
-            
-            const titleSpan = document.createElement('span');
-            titleSpan.className = 'grid-item-title';
-            titleSpan.textContent = item.name;
-            
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'grid-item-date';
-            dateSpan.textContent = item.date;
-
-            overlay.appendChild(titleSpan);
-            if (item.date) {
-                overlay.appendChild(dateSpan);
-            }
-            
             gridItem.appendChild(thumbnailImg);
-            gridItem.appendChild(overlay);
 
             gridContainer.appendChild(gridItem);
         });
@@ -581,6 +489,7 @@
         topControls.classList.add('top-controls-visible');
         
         if (audioUrl) {
+            console.log(`Audio URL: ${audioUrl}`);
             audioPlayerContainer.classList.add('visible');
             audioPlayer.src = audioUrl;
             
