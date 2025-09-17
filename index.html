@@ -455,7 +455,7 @@
             })
             .catch(error => {
                 console.error(error);
-                gridContainer.innerHTML = `<p>Failed to load files from GitHub. Error: ${error.message}</p>`;
+                gridContainer.innerHTML = `<p style="color:black; text-align:center;">Failed to load files from GitHub. Error: ${error.message}</p>`;
             });
     }
 
@@ -478,14 +478,26 @@
         isRendering = false;
     }
 
-    async function reRenderPdf(pdf, container, newScale) {
+    async function reRenderPdf(pdf, container, newScale, oldScale) {
         if (isRendering) return;
         isRendering = true;
         
         const oldScrollTop = container.scrollTop;
-        const oldFirstPageHeight = container.querySelector('.pdf-canvas').offsetHeight;
-
         const pageCanvases = container.querySelectorAll('.pdf-canvas');
+        
+        let currentPageIndex = 0;
+        let offsetInPage = 0;
+
+        for (let i = 0; i < pageCanvases.length; i++) {
+            const canvas = pageCanvases[i];
+            if (canvas.offsetTop <= oldScrollTop + 1) { // Add 1px buffer
+                currentPageIndex = i;
+                offsetInPage = oldScrollTop - canvas.offsetTop;
+            } else {
+                break;
+            }
+        }
+        
         for (let i = 0; i < pdf.numPages; i++) {
             const page = await pdf.getPage(i + 1);
             const viewport = page.getViewport({ scale: newScale });
@@ -497,11 +509,11 @@
             const renderContext = { canvasContext: canvas.getContext('2d'), viewport };
             await page.render(renderContext).promise;
         }
+
+        const newCurrentPageCanvas = pageCanvases[currentPageIndex];
+        const newOffsetInPage = offsetInPage * (newScale / oldScale);
         
-        const newFirstPageHeight = container.querySelector('.pdf-canvas').offsetHeight;
-        const newScrollTop = oldScrollTop * (newFirstPageHeight / oldFirstPageHeight);
-        
-        container.scrollTop = newScrollTop;
+        container.scrollTop = newCurrentPageCanvas.offsetTop + newOffsetInPage;
         isRendering = false;
     }
 
@@ -552,9 +564,10 @@
 
     zoomInBtn.onclick = async () => {
         if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
+            const oldScale = scale;
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-            await reRenderPdf(currentDocument, pdfViewerContainer, scale);
+            await reRenderPdf(currentDocument, pdfViewerContainer, scale, oldScale);
         } else if (currentDocument && currentViewerType === 'image') {
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -565,9 +578,10 @@
     zoomOutBtn.onclick = async () => {
         if (scale > 0.25) {
             if (currentDocument && currentViewerType === 'pdf' && !isRendering) {
+                const oldScale = scale;
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
-                await reRenderPdf(currentDocument, pdfViewerContainer, scale);
+                await reRenderPdf(currentDocument, pdfViewerContainer, scale, oldScale);
             } else if (currentDocument && currentViewerType === 'image') {
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
