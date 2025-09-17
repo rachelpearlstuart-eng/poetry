@@ -113,10 +113,11 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
+            gap: 8px; /* Correctly adds space between flex items */
         }
         .pdf-canvas, .image-viewer {
             display: block;
-            margin: 0 auto 8px auto; /* Adjusted margin */
+            margin: 0 auto;
             height: auto;
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             max-width: 100%;
@@ -368,8 +369,8 @@
 
     function setupAudioPlayer(audioUrl) {
         resetAudioPlayer();
+        console.log(`Setting audio source: ${audioUrl}`); // Debugging line
         if (audioUrl) {
-            console.log(`Setting audio source to: ${audioUrl}`);
             audioPlayer.src = audioUrl;
             audioPlayerContainer.classList.add('visible');
 
