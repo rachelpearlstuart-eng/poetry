@@ -314,7 +314,7 @@
     const progressBarFill = document.getElementById('progress-bar-fill');
     const timeDisplay = document.getElementById('time-display');
     
-    let scale = 4.0;
+    let scale = 3.0;
     let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
@@ -323,16 +323,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     const supportedAudioExts = ['.mp3', '.mp4', '.flac', '.ogg'];
-    
-    // Mapping for custom scale words to numeric values
-    const scaleMap = {
-        'four': 4.0,
-        'five': 5.0,
-        'six': 6.0,
-        'seven': 7.0,
-        'eight': 8.0,
-    };
-    
+
     function fetchAndRenderGrid() {
         fetch(apiUrl)
             .then(response => {
@@ -358,11 +349,8 @@
                     const audio = audioMap.get(pngNameBase);
 
                     if (pdf) {
-                        let customScale = 4.0;
-                        const match = pdf.name.match(/_([a-z]+)\.pdf$/);
-                        if (match && scaleMap[match[1]]) {
-                            customScale = scaleMap[match[1]];
-                        }
+                        const match = pdf.name.match(/_(\d+)\.pdf$/);
+                        const customScale = match ? parseInt(match[1]) / 100 : 3.0;
                         displayItems.push({
                             name: pngNameBase,
                             type: 'pdf',
@@ -407,7 +395,6 @@
 
     async function renderPdf(pdf, container, scale) {
         container.innerHTML = '';
-        console.log(`Rendering PDF at a scale of: ${scale}`);
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const viewport = page.getViewport({ scale });
