@@ -343,10 +343,16 @@
 
                 const displayItems = [];
                 
+                // Create maps for quick lookup by base name
+                const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
+                const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
+                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a])); // Get base name without extension
+
+                // Iterate over PNGs to find matching files
                 pngs.forEach(png => {
                     const pngNameBase = png.name.replace('.png', '');
-                    const pdf = pdfs.find(p => p.name.startsWith(pngNameBase) && p.name.endsWith('.pdf'));
-                    const audio = audioFiles.find(a => a.name.startsWith(pngNameBase) && supportedAudioExts.some(ext => a.name.endsWith(ext)));
+                    const pdf = pdfsMap.get(pngNameBase);
+                    const audio = audioMap.get(pngNameBase);
 
                     if (pdf) {
                         const match = pdf.name.match(/_(\d+)\.pdf$/);
