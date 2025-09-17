@@ -521,11 +521,13 @@
 
     zoomInBtn.onclick = async () => {
         if (currentDocument && currentViewerType === 'pdf') {
+            const oldScale = scale;
             const currentScrollTop = pdfViewerContainer.scrollTop;
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
             await renderPdf(currentDocument, pdfViewerContainer, scale);
-            pdfViewerContainer.scrollTop = currentScrollTop;
+            const newScrollTop = currentScrollTop * (scale / oldScale);
+            pdfViewerContainer.scrollTop = newScrollTop;
         } else if (currentDocument && currentViewerType === 'image') {
             scale += 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
@@ -536,11 +538,13 @@
     zoomOutBtn.onclick = async () => {
         if (scale > 0.25) {
             if (currentDocument && currentViewerType === 'pdf') {
+                const oldScale = scale;
                 const currentScrollTop = pdfViewerContainer.scrollTop;
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
                 await renderPdf(currentDocument, pdfViewerContainer, scale);
-                pdfViewerContainer.scrollTop = currentScrollTop;
+                const newScrollTop = currentScrollTop * (scale / oldScale);
+                pdfViewerContainer.scrollTop = newScrollTop;
             } else if (currentDocument && currentViewerType === 'image') {
                 scale -= 0.25;
                 zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
