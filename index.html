@@ -113,13 +113,17 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            gap: 8px; /* Correctly adds space between flex items */
+        }
+        /* New styling for the page container */
+        .page-container {
+            margin: 0 auto 12px auto;
+            height: auto;
+            max-width: 100%;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
         .pdf-canvas, .image-viewer {
             display: block;
-            margin: 0 auto;
             height: auto;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             max-width: 100%;
             transform-origin: center top;
         }
@@ -349,7 +353,7 @@
 
         for (let i = parts.length - 1; i >= 0; i--) {
             if (qualityScaleMap.hasOwnProperty(parts[i])) {
-                quality = qualityScaleMap[parts[i]];
+                quality = qualityScaleMap[i];
                 break;
             }
         }
@@ -364,7 +368,7 @@
         playPauseBtn.textContent = '▶';
         progressBarFill.style.width = '0%';
         timeDisplay.textContent = '0:00 / 0:00';
-        audioPlayerContainer.classList.remove('visible');
+        audioPlayerContainer.style.display = 'none'; // Directly set display to none
     }
 
     function setupAudioPlayer(audioUrl) {
@@ -372,7 +376,7 @@
         console.log(`Setting audio source: ${audioUrl}`); // Debugging line
         if (audioUrl) {
             audioPlayer.src = audioUrl;
-            audioPlayerContainer.classList.add('visible');
+            audioPlayerContainer.style.display = 'flex'; // Directly set display to flex
 
             audioPlayer.addEventListener('loadedmetadata', () => {
                 console.log('Audio metadata loaded. Duration:', audioPlayer.duration);
@@ -484,7 +488,12 @@
             const visualScale = (initialZoomPercent / 100) / qualityScale;
             canvas.style.transform = `scale(${visualScale})`;
             
-            container.appendChild(canvas);
+            // Create a new container for the page to ensure correct spacing
+            const pageContainer = document.createElement('div');
+            pageContainer.className = 'page-container';
+            pageContainer.appendChild(canvas);
+            
+            container.appendChild(pageContainer);
         }
         isRendering = false;
     }
