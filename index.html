@@ -203,18 +203,18 @@
             gap: 10px;
         }
         .play-pause-btn {
-            background: none;
-            border: 1px solid white;
-            color: white;
-            font-size: 20px;
-            width: 30px;
-            height: 30px;
-            border-radius: 0;
-            cursor: pointer;
-            transition: background-color 0.2s;
+            background: none !important;
+            border: 1px solid white !important;
+            color: white !important;
+            font-size: 20px !important;
+            width: 30px !important;
+            height: 30px !important;
+            border-radius: 0 !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s !important;
         }
         .play-pause-btn:hover {
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.2) !important;
         }
         .progress-bar {
             flex-grow: 1;
@@ -393,14 +393,6 @@
         const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
         const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
 
-        // --- DEBUGGING OUTPUT (START) ---
-        console.group("Debugging File Loading");
-        console.log("Found PNGs:", pngs.map(p => p.name));
-        console.log("Found PDFs:", pdfs.map(p => p.name));
-        console.log("Found Audio:", audioFiles.map(a => a.name));
-        console.groupEnd();
-        // --- DEBUGGING OUTPUT (END) ---
-
         pngs.forEach(png => {
             const pngNameBase = png.name.replace('.png', '');
             const pdf = pdfsMap.get(pngNameBase);
@@ -458,29 +450,6 @@
 
             gridContainer.appendChild(gridItem);
         });
-
-        // --- DEBUGGING OUTPUT (START) ---
-        console.group("Debugging Rendered Items");
-        const renderedItems = document.querySelectorAll('.grid-item');
-        renderedItems.forEach((item, index) => {
-            const img = item.querySelector('img');
-            const computedStyle = window.getComputedStyle(img);
-            console.groupCollapsed(`Item ${index}: ${displayItems[index].name}`);
-            console.log("Thumbnail URL:", img.src);
-            console.log("CSS Computed Style:");
-            console.log(" - `object-fit`:", computedStyle.getPropertyValue('object-fit'));
-            console.log(" - `height`:", computedStyle.getPropertyValue('height'));
-            console.log(" - `width`:", computedStyle.getPropertyValue('width'));
-            console.groupEnd();
-        });
-        const playButton = document.getElementById('play-pause-btn');
-        if(playButton) {
-            console.groupCollapsed("Debugging Play Button");
-            console.log("Play button's computed `border-radius`:", window.getComputedStyle(playButton).getPropertyValue('border-radius'));
-            console.groupEnd();
-        }
-        console.groupEnd();
-        // --- DEBUGGING OUTPUT (END) ---
     }
 
     async function renderPdf(pdf, container, scale, restoreScrollTop = 0) {
@@ -612,7 +581,8 @@
                     await audioPlayer.play();
                     console.log("Audio started playing.");
                 } else {
-                    console.warn('Audio player not ready to play yet.');
+                    console.warn('Audio player not ready to play yet. Attempting to force load.');
+                    audioPlayer.load();
                     audioPlayer.addEventListener('canplaythrough', () => {
                         audioPlayer.play();
                         console.log("Audio ready and started playing.");
@@ -624,7 +594,7 @@
             }
         } catch (error) {
             console.error('Audio playback failed:', error);
-            alert('Audio playback failed. Please check the console for more information.');
+            alert(`Audio playback failed. This is likely due to an invalid file or a server error. Please check your browser's console for more details.`);
         }
     });
 
