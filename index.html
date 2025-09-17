@@ -318,7 +318,6 @@
     let currentDocument = null;
     let controlsTimeout;
     let currentViewerType = null;
-    let currentDocumentUrl = null;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -359,10 +358,19 @@
 
                     if (pdf) {
                         let customScale = 4.0;
-                        const match = pdf.name.match(/_([a-z]+)\.pdf$/);
-                        if (match && scaleMap[match[1]]) {
-                            customScale = scaleMap[match[1]];
+                        
+                        // First, try to find a numeric scale (e.g., _250)
+                        const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
+                        if (numericMatch) {
+                            customScale = parseInt(numericMatch[1]) / 100;
+                        } else {
+                            // If no numeric scale, try to find a word-based scale
+                            const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
+                            if (wordMatch && scaleMap[wordMatch[1]]) {
+                                customScale = scaleMap[wordMatch[1]];
+                            }
                         }
+                        
                         displayItems.push({
                             name: pngNameBase,
                             type: 'pdf',
@@ -477,6 +485,7 @@
     }
 
     zoomInBtn.onclick = () => {
+        console.log(`Zoom In clicked. Current scale: ${scale}`);
         scale += 0.25;
         zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
         if (currentDocument && currentViewerType === 'pdf') {
@@ -487,6 +496,7 @@
     };
 
     zoomOutBtn.onclick = () => {
+        console.log(`Zoom Out clicked. Current scale: ${scale}`);
         if (scale > 0.25) {
             scale -= 0.25;
             zoomLevelSpan.textContent = `${Math.round(scale * 100)}%`;
