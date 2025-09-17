@@ -12,11 +12,15 @@
             margin: 0;
             padding: 20px 20px 60px 20px;
             background-color: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 20px;
+            flex-grow: 1;
         }
         .grid-item {
             background-color: #fff;
@@ -236,6 +240,17 @@
             color: #ccc;
         }
 
+        /* Loading Indicator */
+        .loading-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50vh;
+            font-family: monospace;
+            font-size: 1.5em;
+            color: #333;
+        }
+
         /* Custom Scrollbar */
         .modal-content::-webkit-scrollbar {
             width: 8px;
@@ -258,7 +273,8 @@
 <body>
 
 <div id="grid-container" class="grid-container">
-    </div>
+    <div id="loading-indicator" class="loading-text">Loading...</div>
+</div>
 
 <div class="footer-bar">
     <a href="mailto:rachelpearlstuart@gmail.com" class="contact-link contact-link-hidden">CONTACT</a>
@@ -298,6 +314,7 @@
     const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
     
     const gridContainer = document.getElementById('grid-container');
+    const loadingIndicator = document.getElementById('loading-indicator');
     const modal = document.getElementById('pdfModal');
     const pdfViewerContainer = document.getElementById('pdf-viewer-container');
     const topControls = document.getElementById('topControls');
@@ -332,85 +349,113 @@
         'eight': 8.0,
     };
     
-    function fetchAndRenderGrid() {
-        fetch(apiUrl)
-            .then(response => {
-                if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
-                return response.json();
-            })
-            .then(files => {
-                const pdfs = files.filter(f => f.name.endsWith('.pdf'));
-                const pngs = files.filter(f => f.name.endsWith('.png'));
-                const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
+    async function fetchAndRenderGrid() {
+        let files = null;
+        const cacheKey = 'github-files-cache';
+        const cacheExpiration = 3600000; // 1 hour in milliseconds
 
-                const displayItems = [];
-                
-                // Create maps for quick lookup by base name
-                const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
-                const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
-                const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
-
-                // Iterate over PNGs to find matching files
-                pngs.forEach(png => {
-                    const pngNameBase = png.name.replace('.png', '');
-                    const pdf = pdfsMap.get(pngNameBase);
-                    const audio = audioMap.get(pngNameBase);
-
-                    if (pdf) {
-                        let customScale = 4.0;
-                        
-                        // First, try to find a numeric scale (e.g., _250)
-                        const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
-                        if (numericMatch) {
-                            customScale = parseInt(numericMatch[1]) / 100;
-                        } else {
-                            // If no numeric scale, try to find a word-based scale
-                            const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
-                            if (wordMatch && scaleMap[wordMatch[1]]) {
-                                customScale = scaleMap[wordMatch[1]];
-                            }
-                        }
-                        
-                        displayItems.push({
-                            name: pngNameBase,
-                            type: 'pdf',
-                            url: pdf.download_url,
-                            scale: customScale,
-                            thumbnailUrl: png.download_url,
-                            audioUrl: audio ? audio.download_url : null
-                        });
-                    } else if (audio) {
-                         displayItems.push({
-                            name: pngNameBase,
-                            type: 'image',
-                            url: png.download_url,
-                            scale: 2.0,
-                            thumbnailUrl: png.download_url,
-                            audioUrl: audio.download_url
-                        });
-                    }
-                });
-
-                if (displayItems.length === 0) {
-                    gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
-                    return;
+        try {
+            const cachedData = localStorage.getItem(cacheKey);
+            if (cachedData) {
+                const { files: cachedFiles, timestamp } = JSON.parse(cachedData);
+                if (Date.now() - timestamp < cacheExpiration) {
+                    files = cachedFiles;
+                    console.log('Loading from cache.');
                 }
-                displayItems.sort((a, b) => a.name.localeCompare(b.name));
-                displayItems.forEach(item => {
-                    const gridItem = document.createElement('div');
-                    gridItem.className = 'grid-item';
-                    gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
+            }
+        } catch (e) {
+            console.error('Failed to access localStorage:', e);
+        }
 
-                    // Use background image instead of an <img> tag
-                    gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
-                    
-                    gridContainer.appendChild(gridItem);
-                });
-            })
-            .catch(error => {
+        if (!files) {
+            console.log('Loading from GitHub API...');
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+                files = await response.json();
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({ files, timestamp: Date.now() }));
+                    console.log('Cached new data.');
+                } catch (e) {
+                    console.error('Failed to save to localStorage:', e);
+                }
+            } catch (error) {
                 console.error(error);
-                gridContainer.innerHTML = `<p>Failed to load files from GitHub. Error: ${error.message}</p>`;
-            });
+                loadingIndicator.textContent = `Failed to load files from GitHub. Error: ${error.message}`;
+                return;
+            }
+        }
+        
+        loadingIndicator.style.display = 'none';
+
+        const pdfs = files.filter(f => f.name.endsWith('.pdf'));
+        const pngs = files.filter(f => f.name.endsWith('.png'));
+        const audioFiles = files.filter(f => supportedAudioExts.some(ext => f.name.endsWith(ext)));
+
+        const displayItems = [];
+        
+        // Create maps for quick lookup by base name
+        const pngsMap = new Map(pngs.map(p => [p.name.replace('.png', ''), p]));
+        const pdfsMap = new Map(pdfs.map(p => [p.name.replace('.pdf', ''), p]));
+        const audioMap = new Map(audioFiles.map(a => [a.name.replace(/\.[^/.]+$/, ''), a]));
+
+        // Iterate over PNGs to find matching files
+        pngs.forEach(png => {
+            const pngNameBase = png.name.replace('.png', '');
+            const pdf = pdfsMap.get(pngNameBase);
+            const audio = audioMap.get(pngNameBase);
+
+            if (pdf) {
+                let customScale = 4.0;
+                
+                // First, try to find a numeric scale (e.g., _250)
+                const numericMatch = pdf.name.match(/_(\d+)\.pdf$/);
+                if (numericMatch) {
+                    customScale = parseInt(numericMatch[1]) / 100;
+                } else {
+                    // If no numeric scale, try to find a word-based scale
+                    const wordMatch = pdf.name.match(/_([a-z]+)\.pdf$/);
+                    if (wordMatch && scaleMap[wordMatch[1]]) {
+                        customScale = scaleMap[wordMatch[1]];
+                    }
+                }
+                
+                displayItems.push({
+                    name: pngNameBase,
+                    type: 'pdf',
+                    url: pdf.download_url,
+                    scale: customScale,
+                    thumbnailUrl: png.download_url,
+                    audioUrl: audio ? audio.download_url : null
+                });
+            } else if (audio) {
+                 displayItems.push({
+                    name: pngNameBase,
+                    type: 'image',
+                    url: png.download_url,
+                    scale: 2.0,
+                    thumbnailUrl: png.download_url,
+                    audioUrl: audio.download_url
+                });
+            }
+        });
+
+        if (displayItems.length === 0) {
+            gridContainer.innerHTML = '<p>No displayable files found. Please ensure each PDF or audio file has a matching PNG thumbnail.</p>';
+            return;
+        }
+        displayItems.sort((a, b) => a.name.localeCompare(b.name));
+        gridContainer.innerHTML = ''; // Clear loading indicator
+        displayItems.forEach(item => {
+            const gridItem = document.createElement('div');
+            gridItem.className = 'grid-item';
+            gridItem.onclick = () => openViewer(item.url, item.scale, item.audioUrl, item.type);
+
+            // Use background image instead of an <img> tag
+            gridItem.style.backgroundImage = `url('${item.thumbnailUrl}')`;
+            
+            gridContainer.appendChild(gridItem);
+        });
     }
 
     async function renderPdf(pdf, container, scale, restoreScrollTop = 0) {
